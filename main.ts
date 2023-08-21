@@ -1,14 +1,139 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile } from 'obsidian';
+import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile, TFolder, normalizePath, FuzzySuggestModal } from 'obsidian';
+
+
+/*
+		AbstractTextComponent: ()=>jI,
+			App: ()=>VJ,
+			BaseComponent: ()=>VI,
+			ButtonComponent: ()=>qI,
+			ColorComponent: ()=>$I,
+			Component: ()=>lf,
+			DropdownComponent: ()=>XI,
+			EditableFileView: ()=>vI,
+			Editor: ()=>Ow,
+			EditorSuggest: ()=>ag,
+			Events: ()=>ug,
+			ExtraButtonComponent: ()=>UI,
+			FileManager: ()=>zj,
+			FileSystemAdapter: ()=>Ud,
+			FileView: ()=>mI,
+			FuzzySuggestModal: ()=>Zj,
+			HoverPopover: ()=>u_,
+			ItemView: ()=>hI,
+			Keymap: ()=>bm,
+			MarkdownPreviewRenderer: ()=>GA,
+			MarkdownPreviewSection: ()=>UA,
+			MarkdownPreviewView: ()=>wP,
+			MarkdownRenderChild: ()=>qA,
+			MarkdownRenderer: ()=>vP,
+			MarkdownSourceView: ()=>JU,
+			MarkdownView: ()=>QW,
+			Menu: ()=>rg,
+			MenuItem: ()=>ng,
+			MenuSeparator: ()=>ig,
+			MetadataCache: ()=>KU,
+			Modal: ()=>EU,
+			MomentFormatComponent: ()=>YI,
+			Notice: ()=>fI,
+			Platform: ()=>ct,
+			Plugin: ()=>MW,
+			PluginSettingTab: ()=>TW,
+			PopoverState: ()=>$U,
+			PopoverSuggest: ()=>wm,
+			Scope: ()=>vm,
+			Setting: ()=>HI,
+			SettingTab: ()=>Sj,
+			SliderComponent: ()=>ZI,
+			SuggestModal: ()=>Xj,
+			TAbstractFile: ()=>XE,
+			TFile: ()=>$E,
+			TFolder: ()=>QE,
+			TextAreaComponent: ()=>KI,
+			TextComponent: ()=>WI,
+			TextFileView: ()=>e_,
+			ToggleComponent: ()=>_I,
+			ValueComponent: ()=>zI,
+			Vault: ()=>JE,
+			View: ()=>uI,
+			ViewRegistry: ()=>L_,
+			Workspace: ()=>gW,
+			WorkspaceContainer: ()=>nj,
+			WorkspaceFloating: ()=>hW,
+			WorkspaceItem: ()=>Q_,
+			WorkspaceLeaf: ()=>aj,
+			WorkspaceParent: ()=>J_,
+			WorkspaceRibbon: ()=>cW,
+			WorkspaceRoot: ()=>uW,
+			WorkspaceSidedock: ()=>tj,
+			WorkspaceSplit: ()=>ej,
+			WorkspaceTabs: ()=>rj,
+			WorkspaceWindow: ()=>pW,
+			addIcon: ()=>Cf,
+			apiVersion: ()=>PJ,
+			arrayBufferToBase64: ()=>q,
+			arrayBufferToHex: ()=>G,
+			base64ToArrayBuffer: ()=>z,
+			debounce: ()=>qe,
+			editorEditorField: ()=>BP,
+			editorInfoField: ()=>RP,
+			editorLivePreviewField: ()=>HP,
+			editorViewField: ()=>NP,
+			finishRenderMath: ()=>TA,
+			fuzzySearch: ()=>Im,
+			getAllTags: ()=>xS,
+			getBlobArrayBuffer: ()=>We,
+			getIcon: ()=>wf,
+			getIconIds: ()=>Ef,
+			getLinkpath: ()=>bS,
+			hexToArrayBuffer: ()=>W,
+			htmlToMarkdown: ()=>NE,
+			iterateCacheRefs: ()=>kS,
+			iterateRefs: ()=>CS,
+			livePreviewState: ()=>iF,
+			loadMathJax: ()=>kA,
+			loadMermaid: ()=>vA,
+			loadPdfJs: ()=>dA,
+			loadPrism: ()=>bA,
+			moment: ()=>tF,
+			normalizePath: ()=>he,
+			parseFrontMatterAliases: ()=>Jb,
+			parseFrontMatterEntry: ()=>$b,
+			parseFrontMatterStringArray: ()=>Qb,
+			parseFrontMatterTags: ()=>ew,
+			parseLinktext: ()=>wS,
+			parseYaml: ()=>JO,
+			prepareFuzzySearch: ()=>Am,
+			prepareQuery: ()=>Dm,
+			prepareSimpleSearch: ()=>Nm,
+			removeIcon: ()=>xf,
+			renderMatches: ()=>Hm,
+			renderMath: ()=>CA,
+			renderResults: ()=>Rm,
+			request: ()=>v_,
+			requestUrl: ()=>g_,
+			requireApiVersion: ()=>OJ,
+			resolveSubpath: ()=>DS,
+			sanitizeHTMLToDom: ()=>OM,
+			setIcon: ()=>kf,
+			sortSearchResults: ()=>Om,
+			stringifyYaml: ()=>eF,
+			stripHeading: ()=>MS,
+			stripHeadingForLink: ()=>TS
+		
+		let Id = /\u00A0/g;
+		function Od(e) {
+			return e.replace(Id, " ")
+		}
+
+		*/
 
 // Remember to rename these classes and interfaces!
 
 interface VXsToolsPluginSettings {
-	useCoreTemplateFolder: boolean;
 	templateFolder: string;
 }
 
 const DEFAULT_SETTINGS: VXsToolsPluginSettings = {
-	useCoreTemplateFolder: true,
 	templateFolder: 'default'
 }
 
@@ -17,10 +142,42 @@ interface CoreTemplatePlugin {
 	templateFiles: TFile[]
 }
 
+class FileSuggestModal extends FuzzySuggestModal<TFile> {
+	private items;
+	private onChooseCallback;
+	constructor(app: App, items: TFile[], onChooseCallback: (item: TFile) => void) {
+		super(app);
+		this.items = items;
+		this.onChooseCallback = onChooseCallback;
+		this.emptyStateText = "tf.plugins.templates.msgNoTemplatesFound()",
+			this.setInstructions([{
+				command: "↑↓",
+				purpose: "tf.plugins.templates.instructionNavigate()"
+			}, {
+				command: "↵",
+				purpose: "tf.plugins.templates.instructionInsert()"
+			}, {
+				command: "esc",
+				purpose: "tf.plugins.templates.instructionDismiss()"
+			}]),
+			this.setPlaceholder("tf.plugins.templates.promptTypeTemplate())");
+		this.scope.register([], "Tab", () => !1);
+	}
+	getItems() {
+		return this.items;
+	}
+	onChooseItem(item: TFile) {
+		this.onChooseCallback(item);
+	}
+	getItemText(item: TFile) {
+		return item.basename
+	}
+}
+
 export default class VXsToolsPlugin extends Plugin {
 	settings: VXsToolsPluginSettings;
 
-	get coreTemplatePlugin(): CoreTemplatePlugin | null {
+	getCoreTemplatePlugin(): CoreTemplatePlugin | null {
 		let coreTemplatePlugin: any = null;
 		try {
 			let app: any = this.app
@@ -36,68 +193,55 @@ export default class VXsToolsPlugin extends Plugin {
 		return coreTemplatePlugin;
 	}
 
-	get coreTemplateFolder() {
-		let coreTemplatePlugin = this.coreTemplatePlugin;
+	getCoreTemplateFolder() {
+		let coreTemplatePlugin = this.getCoreTemplatePlugin();
 		if (null === coreTemplatePlugin) return "";
 		if (null === coreTemplatePlugin.options) return "";
 		if (null === coreTemplatePlugin.options.folder) return "";
 		return coreTemplatePlugin.options.folder;
 	}
 
-	get templateFolder() {
-		if (this.settings.useCoreTemplateFolder) return this.coreTemplateFolder;
-		else return this.settings.templateFolder;
+	syncSettingCoreTemplatePlugin() {
+		this.settings.templateFolder = this.getCoreTemplateFolder();
 	}
 
 	async onload() {
 		await this.loadSettings();
 
-		if (this.settings.useCoreTemplateFolder && null === this.coreTemplatePlugin) this.settings.useCoreTemplateFolder = false;
-
 		const vxsInsertTemplate = () => {
-			var plugin = this.coreTemplatePlugin;
+			let templateFolderPath = this.settings.templateFolder;
 
-			var templateFolderPath = this.templateFolder;
-			if (!String.isString(templateFolderPath))  {
-				//plugin.
-				//(new fI(tf.plugins.templates.msgNoFolderSet()),[2])
+			if (!String.isString(templateFolderPath)) {
+				new Notice("tf.plugins.templates.msgNoFolderSet()),[2]")
 				return;
 			}
 
-			var templateFolder = this.app.vault.getAbstractFileByPath(templateFolderPath);
+			let templateFolderPathNormalized = normalizePath(templateFolderPath.replace(/\u00A0/g, " ").normalize("NFC"));
+			let templateFolder = this.app.vault.getAbstractFileByPath(templateFolderPathNormalized);
 
-			//let r = 
-			//this.app.vault.getAbstractFileByPath(r);
-			//if ()
+			if (!(templateFolder instanceof TFolder)) {
+				new Notice("tf.plugins.templates.msgFailFolderNotFound({\n\
+				// 	folderOption: templateFolderPath\n\
+				// })");
+				return;
+			}
 
-			//new SampleModal(this.app).open();
-			//this.app.workspace.getActiveViewOfType(MarkdownView);
+			let templateFiles: TFile[] = [];
+			function getTemplates(folder: TFolder) {
+				for (let i = 0; i < folder.children.length; i++) {
+					let entry = folder.children[i];
+					if (entry instanceof TFile && "md" === entry.extension)
+						templateFiles.push(entry);
+					else if (entry instanceof TFolder)
+						getTemplates(entry);
+				}
+			}
+			getTemplates(templateFolder);
 
-			/*
-			var e, t, n, templateFolder, r, o, a, s = this;
-
-			t = (e = this).app,
-				n = e.options,
-				(templateFolder = n.folder) && String.isString(templateFolder) ? (r = he(Od(templateFolder).normalize("NFC")),
-					(o = t.vault.getAbstractFileByPath(r)) && o instanceof QE ? (this.templateFiles = [],
-						(a = function (e) {
-							for (var t = 0, n = e.children; t < n.length; t++) {
-								var i = n[t];
-								i instanceof $E && "md" === i.extension ? s.templateFiles.push(i) : i instanceof QE && a(i)
-							}
-						}
-						)(o),
-						new VQ(t, this).open(),
-						[2]) : (new fI(tf.plugins.templates.msgFailFolderNotFound({
-							folderOption: templateFolder
-						})),
-							[2])) 
-													: (new fI(tf.plugins.templates.msgNoFolderSet()),[2])
-			*/
-
-			
-
-		}
+			new FileSuggestModal(this.app, templateFiles, item => {
+				
+			}).open();
+		};
 
 		const ribbonIconVXsTemplate = this.addRibbonIcon('lucide-files', "VX's insert template", evt => vxsInsertTemplate());
 		ribbonIconVXsTemplate.addClass('vxs-plugin-ribbon-class');
@@ -155,32 +299,22 @@ class VXsToolsPluginSettingTab extends PluginSettingTab {
 
 		containerEl.empty();
 
-		let [useCoreTemplateSetting, templateFolderSetting] = [
-			new Setting(containerEl)
-				.setName('Use core template settings')
-				.setDesc('')
-				.addToggle(toggle => toggle
-					.setDisabled(null == this.plugin.coreTemplatePlugin)
-					.setValue(this.plugin.settings.useCoreTemplateFolder)
-					.onChange(async (value) => {
-						this.plugin.settings.useCoreTemplateFolder = value;
-						if (value && this.plugin.coreTemplatePlugin) {
-							this.plugin.settings.templateFolder = this.plugin.coreTemplateFolder;
-						}
-						await this.plugin.saveSettings();
-					})),
-
-			new Setting(containerEl)
-				.setName('Template folder location')
-				.setDesc('Files in this folder will be available as templates.')
-				.addText(text => text
-					.setDisabled(this.plugin.settings.useCoreTemplateFolder)
-					.setPlaceholder('')
-					.setValue(this.plugin.settings.templateFolder)
-					.onChange(async (value) => {
-						this.plugin.settings.templateFolder = value;
-						await this.plugin.saveSettings();
-					}))
-		];
+		new Setting(containerEl)
+			.setName('Template folder location')
+			.setDesc('Files in this folder will be available as templates.')
+			.addText(text => text
+				.setPlaceholder('')
+				.setValue(this.plugin.settings.templateFolder)
+				.onChange(async (value) => {
+					this.plugin.settings.templateFolder = value;
+					await this.plugin.saveSettings();
+				}))
+			.addButton(btn => btn
+				.setDisabled(null == this.plugin.getCoreTemplatePlugin())
+				.setButtonText("Sync from core template plugin")
+				.onClick(async (evt) => {
+					this.plugin.syncSettingCoreTemplatePlugin();
+					await this.plugin.saveSettings();
+				}))
 	}
 }
