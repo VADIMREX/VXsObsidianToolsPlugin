@@ -176,38 +176,28 @@ interface CoreTemplatePlugin {
 }
 
 function getCoreTemplatePlugin(app: App): CoreTemplatePlugin | null {
-    try {
-        for (let tab of (app as any).setting.pluginTabs) {
-            if (tab.id !== "templates") continue;
-            return tab.instance;
-        }
-    }
-    catch (e) {
-        // todo notice
-    }
-    return null;
+	try {
+		for (let tab of (app as any).setting.pluginTabs) {
+			if (tab.id !== "templates") continue;
+			return tab.instance;
+		}
+	}
+	catch (e) {
+		// todo notice
+	}
+	return null;
 }
 
 function getCoreTemplateFolder(app: App) {
-    let coreTemplatePlugin = getCoreTemplatePlugin(app);
-    if (null === coreTemplatePlugin) return "";
-    if (null === coreTemplatePlugin.options) return "";
-    if (null === coreTemplatePlugin.options.folder) return "";
-    return coreTemplatePlugin.options.folder;
-}
-
-interface ifsPromises {
-	readFile(path: string, options: any): Promise<Buffer>;
-	readFile(path: string, options: any&{encoding: "utf-8"}): Promise<string>;
-}
-interface ifs {
-	promises: ifsPromises;
+	let coreTemplatePlugin = getCoreTemplatePlugin(app);
+	if (null === coreTemplatePlugin) return "";
+	if (null === coreTemplatePlugin.options) return "";
+	if (null === coreTemplatePlugin.options.folder) return "";
+	return coreTemplatePlugin.options.folder;
 }
 
 export default class VXsToolsPlugin extends Plugin {
 	settings: VXsToolsPluginSettings;
-
-	fs: ifs;
 
 	syncSettingCoreTemplatePlugin() {
 		this.settings.templateFolder = getCoreTemplateFolder(this.app);
@@ -271,41 +261,46 @@ export default class VXsToolsPlugin extends Plugin {
 	}
 
 	async onload() {
-		require("wasm_exec");
+		new Notice("loading VX's plugin");
+		try {
+			require("wasm_exec");
 
-		await this.loadSettings();
+			await this.loadSettings();
 
-		this.fs = window.require("original-fs");
+			const ribbonIconVXsTemplate = this.addRibbonIcon('lucide-files', "VX's insert template", evt => this.vxsPickTemplate());
+			ribbonIconVXsTemplate.addClass('vxs-plugin-ribbon-class');
 
-		const ribbonIconVXsTemplate = this.addRibbonIcon('lucide-files', "VX's insert template", evt => this.vxsPickTemplate());
-		ribbonIconVXsTemplate.addClass('vxs-plugin-ribbon-class');
+			this.addCommand({
+				id: 'vxs-tools-plugin-insert-template',
+				name: "VX's Insert template",
+				callback: () => this.vxsPickTemplate()
+			});
 
-		this.addCommand({
-			id: 'vxs-tools-plugin-insert-template',
-			name: "VX's Insert template",
-			callback: () => this.vxsPickTemplate()
-		});
+			this.addCommand({
+				id: 'vxs-tools-plugin-wasm-test',
+				name: "VX's WASM test",
+				callback: async () => {
+					if (!WebAssembly)
+						return new Notice("WebAssembly is not supported");;
+					const go = new Go();
+					var read = await this.app.vault.adapter.readBinary(".obsidian/plugins/vxs-obsidian-tools-plugin/testgowasm/hello.wasm")
+					WebAssembly.instantiate(read, go.importObject).then((result) => {
+						go.run(result.instance);
+						new Notice((window as any).hello())
+					});
+				}
+			});
 
-		this.addCommand({
-			id: 'vxs-tools-plugin-wasm-test',
-			name: "VX's WASM test",
-			callback: async () => {
-				if (!WebAssembly) 
-					return new Notice("WebAssembly is not supported");;
-				const go = new Go();
-				var read = await this.app.vault.adapter.readBinary(".obsidian/plugins/vxs-obsidian-tools-plugin/testgowasm/hello.wasm")
-				WebAssembly.instantiate(read, go.importObject).then((result) => {
-					go.run(result.instance);
-					new Notice((window as any).hello())
-				});
-			}
-		});
-
-		this.addSettingTab(new VXsToolsPluginSettingTab(this.app, this));
+			this.addSettingTab(new VXsToolsPluginSettingTab(this.app, this));
+		}
+		catch(e) {
+			new Notice(`${e}: ${(e as Error).stack}`);
+		}
+		new Notice("loaded VX's plugin");
 	}
 
 	onunload() {
-
+		new Notice("unloaded VX's plugin");
 	}
 
 	async loadSettings() {
