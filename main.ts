@@ -1,5 +1,5 @@
+/// <reference path="wasm_exec.d.ts" />
 import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile, TFolder, normalizePath, FuzzySuggestModal } from 'obsidian';
-
 
 /*
 		AbstractTextComponent: ()=>jI,
@@ -137,10 +137,6 @@ const DEFAULT_SETTINGS: VXsToolsPluginSettings = {
 	templateFolder: 'default'
 }
 
-interface CoreTemplatePlugin {
-	options: { folder: string };
-	templateFiles: TFile[]
-}
 
 class FileSuggestModal extends FuzzySuggestModal<TFile> {
 	private items;
@@ -174,83 +170,134 @@ class FileSuggestModal extends FuzzySuggestModal<TFile> {
 	}
 }
 
+interface CoreTemplatePlugin {
+	options: { folder: string };
+	templateFiles: TFile[]
+}
+
+function getCoreTemplatePlugin(app: App): CoreTemplatePlugin | null {
+    try {
+        for (let tab of (app as any).setting.pluginTabs) {
+            if (tab.id !== "templates") continue;
+            return tab.instance;
+        }
+    }
+    catch (e) {
+        // todo notice
+    }
+    return null;
+}
+
+function getCoreTemplateFolder(app: App) {
+    let coreTemplatePlugin = getCoreTemplatePlugin(app);
+    if (null === coreTemplatePlugin) return "";
+    if (null === coreTemplatePlugin.options) return "";
+    if (null === coreTemplatePlugin.options.folder) return "";
+    return coreTemplatePlugin.options.folder;
+}
+
+interface ifsPromises {
+	readFile(path: string, options: any): Promise<Buffer>;
+	readFile(path: string, options: any&{encoding: "utf-8"}): Promise<string>;
+}
+interface ifs {
+	promises: ifsPromises;
+}
+
 export default class VXsToolsPlugin extends Plugin {
 	settings: VXsToolsPluginSettings;
 
-	getCoreTemplatePlugin(): CoreTemplatePlugin | null {
-		let coreTemplatePlugin: any = null;
-		try {
-			let app: any = this.app
-			for (let tab of app.setting.pluginTabs) {
-				if (tab.id !== "templates") continue;
-				coreTemplatePlugin = tab.instance;
-				break;
-			}
-		}
-		catch (e) {
-
-		}
-		return coreTemplatePlugin;
-	}
-
-	getCoreTemplateFolder() {
-		let coreTemplatePlugin = this.getCoreTemplatePlugin();
-		if (null === coreTemplatePlugin) return "";
-		if (null === coreTemplatePlugin.options) return "";
-		if (null === coreTemplatePlugin.options.folder) return "";
-		return coreTemplatePlugin.options.folder;
-	}
+	fs: ifs;
 
 	syncSettingCoreTemplatePlugin() {
-		this.settings.templateFolder = this.getCoreTemplateFolder();
+		this.settings.templateFolder = getCoreTemplateFolder(this.app);
+	}
+
+	vxsPickTemplate() {
+		let templateFolderPath = this.settings.templateFolder;
+
+		if (!String.isString(templateFolderPath)) {
+			new Notice("tf.plugins.templates.msgNoFolderSet()),[2]")
+			return;
+		}
+
+		let templateFolderPathNormalized = normalizePath(templateFolderPath.replace(/\u00A0/g, " ").normalize("NFC"));
+		let templateFolder = this.app.vault.getAbstractFileByPath(templateFolderPathNormalized);
+
+		if (!(templateFolder instanceof TFolder)) {
+			new Notice("tf.plugins.templates.msgFailFolderNotFound({\n\
+			// 	folderOption: templateFolderPath\n\
+			// })");
+			return;
+		}
+
+		let templateFiles: TFile[] = [];
+		function getTemplates(folder: TFolder) {
+			for (let i = 0; i < folder.children.length; i++) {
+				let entry = folder.children[i];
+				if (entry instanceof TFile && "md" === entry.extension)
+					templateFiles.push(entry);
+				else if (entry instanceof TFolder)
+					getTemplates(entry);
+			}
+		}
+		getTemplates(templateFolder);
+
+		new FileSuggestModal(this.app, templateFiles, this.vxsApplyTemplate).open();
+	}
+
+	async vxsApplyTemplate(templateFile: TFile) {
+		if (!this.app.workspace.activeEditor) {
+			return;
+		}
+		let activeEditor = this.app.workspace.activeEditor;
+		let editor = activeEditor.editor;
+		let file = activeEditor.file;
+		let template = await this.app.vault.cachedRead(templateFile);
+		template = template.replace(new RegExp("{{title}}"), file?.basename ?? "")
+		template = template.replace(/{{(date|time)(?::(.*?))?}}/gi, (function (e, t, i) {
+			let n = {
+				dateFormat: undefined,
+				timeFormat: undefined,
+			}
+			let a = window.moment();
+			let Fj = "YYYY-MM-DD";
+			let Bj = "HH:mm";
+			return i ? a.format(i) : "date" === t.toLowerCase() ? a.format(n && n.dateFormat || Fj) : a.format(n && n.timeFormat || Bj);
+		}
+		))
+		editor?.replaceSelection(template);
+		editor?.focus();
 	}
 
 	async onload() {
+		require("wasm_exec");
+
 		await this.loadSettings();
 
-		const vxsInsertTemplate = () => {
-			let templateFolderPath = this.settings.templateFolder;
+		this.fs = window.require("original-fs");
 
-			if (!String.isString(templateFolderPath)) {
-				new Notice("tf.plugins.templates.msgNoFolderSet()),[2]")
-				return;
-			}
-
-			let templateFolderPathNormalized = normalizePath(templateFolderPath.replace(/\u00A0/g, " ").normalize("NFC"));
-			let templateFolder = this.app.vault.getAbstractFileByPath(templateFolderPathNormalized);
-
-			if (!(templateFolder instanceof TFolder)) {
-				new Notice("tf.plugins.templates.msgFailFolderNotFound({\n\
-				// 	folderOption: templateFolderPath\n\
-				// })");
-				return;
-			}
-
-			let templateFiles: TFile[] = [];
-			function getTemplates(folder: TFolder) {
-				for (let i = 0; i < folder.children.length; i++) {
-					let entry = folder.children[i];
-					if (entry instanceof TFile && "md" === entry.extension)
-						templateFiles.push(entry);
-					else if (entry instanceof TFolder)
-						getTemplates(entry);
-				}
-			}
-			getTemplates(templateFolder);
-
-			new FileSuggestModal(this.app, templateFiles, item => {
-				
-			}).open();
-		};
-
-		const ribbonIconVXsTemplate = this.addRibbonIcon('lucide-files', "VX's insert template", evt => vxsInsertTemplate());
+		const ribbonIconVXsTemplate = this.addRibbonIcon('lucide-files', "VX's insert template", evt => this.vxsPickTemplate());
 		ribbonIconVXsTemplate.addClass('vxs-plugin-ribbon-class');
 
 		this.addCommand({
 			id: 'vxs-tools-plugin-insert-template',
 			name: "VX's Insert template",
-			callback: () => {
-				vxsInsertTemplate();
+			callback: () => this.vxsPickTemplate()
+		});
+
+		this.addCommand({
+			id: 'vxs-tools-plugin-wasm-test',
+			name: "VX's WASM test",
+			callback: async () => {
+				if (!WebAssembly) 
+					return new Notice("WebAssembly is not supported");;
+				const go = new Go();
+				var read = await this.app.vault.adapter.readBinary(".obsidian/plugins/vxs-obsidian-tools-plugin/testgowasm/hello.wasm")
+				WebAssembly.instantiate(read, go.importObject).then((result) => {
+					go.run(result.instance);
+					new Notice((window as any).hello())
+				});
 			}
 		});
 
@@ -267,22 +314,6 @@ export default class VXsToolsPlugin extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
-	}
-}
-
-class SampleModal extends Modal {
-	constructor(app: App) {
-		super(app);
-	}
-
-	onOpen() {
-		const { contentEl } = this;
-		contentEl.setText('Woah!');
-	}
-
-	onClose() {
-		const { contentEl } = this;
-		contentEl.empty();
 	}
 }
 
@@ -310,7 +341,7 @@ class VXsToolsPluginSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}))
 			.addButton(btn => btn
-				.setDisabled(null == this.plugin.getCoreTemplatePlugin())
+				.setDisabled(null == getCoreTemplatePlugin(this.app))
 				.setButtonText("Sync from core template plugin")
 				.onClick(async (evt) => {
 					this.plugin.syncSettingCoreTemplatePlugin();
