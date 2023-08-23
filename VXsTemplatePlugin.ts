@@ -128,18 +128,82 @@ export default class VXsTemplatePlugin extends VXsProxyPlugin {
         let editor = activeEditor.editor;
         let file = activeEditor.file;
         let template = await this.app.vault.cachedRead(templateFile);
-        template = template.replace(new RegExp("{{title}}"), file?.basename ?? "")
-        template = template.replace(/{{(date|time)(?::(.*?))?}}/gi, (function (e, t, i) {
-            let n = {
-                dateFormat: undefined,
-                timeFormat: undefined,
+        
+        template = template.replace(/{{[^}]+}}/gi, (pattern, args)=> {
+            let macro = pattern.substring(2, pattern.length - 2).split('|');
+            switch(macro[0]) {
+                case "title":
+                    return file?.basename ?? "";
+                case "date":
+                case "time":
+                    let n = {
+                        dateFormat: undefined,
+                        timeFormat: undefined,
+                    }
+                    let moment = window.moment;
+                    let now = moment();    
+                    let dateFormat = "YYYY-MM-DD";
+                    let timeFormat = "HH:mm";
+
+                    if (1 == macro.length) return "date" === macro[0] ? 
+                        now.format(n && n.dateFormat || dateFormat) : 
+                        now.format(n && n.timeFormat || timeFormat);
+                    
+                    if (2 == macro.length) return now.format(macro[1]);
+
+                    let locale = moment.locale();
+                    if (locale == macro[1] || macro[1] == moment.locale(macro[1])) {
+                        now = moment();
+                        let result = "";
+
+                        if (isNaN(+macro[2])) 
+                            result = now.format(macro.slice(2).join("|"));
+
+                        else if (4 == macro.length) {
+                            now.add(+macro[2], 'days');
+                            result = now.format(macro[3]);
+                        }
+
+                        else if (![
+                                "year" , "years" , "y" ,
+                                "month" , "months" , "M" ,
+                                "week" , "weeks" , "w" ,
+                                "day" , "days" , "d" ,
+                                "hour" , "hours" , "h" ,
+                                "minute" , "minutes" , "m" ,
+                                "second" , "seconds" , "s" ,
+                                "millisecond" , "milliseconds" , "ms",
+                                "quarter" , "quarters" , "Q"
+                            ].contains(macro[3])) {
+                            now.add(+macro[2], 'days');
+                            result = now.format(macro.slice(3).join("|"));
+                        }
+
+                        else {
+                            now.add(+macro[2], macro[3] as any);
+                            result = now.format(macro.slice(4).join("|"));
+                        }
+                        
+                        moment.locale(locale);
+                        return result;
+                    }
+                    
+                    return now.format(macro.slice(1).join("|"));
+                default:
+                    // todo backward compatibility with date:<format> and time:<format>
+                    /*
+                    let n = {
+                        dateFormat: undefined,
+                        timeFormat: undefined,
+                    }
+                    let a = window.moment();
+                    let Fj = "YYYY-MM-DD";
+                    let Bj = "HH:mm";
+                    return i ? a.format(i) : "date" === t.toLowerCase() ? a.format(n && n.dateFormat || Fj) : a.format(n && n.timeFormat || Bj);
+                    */
+                    return pattern;
             }
-            let a = window.moment();
-            let Fj = "YYYY-MM-DD";
-            let Bj = "HH:mm";
-            return i ? a.format(i) : "date" === t.toLowerCase() ? a.format(n && n.dateFormat || Fj) : a.format(n && n.timeFormat || Bj);
-        }
-        ))
+        });
         editor?.replaceSelection(template);
         editor?.focus();
     }
