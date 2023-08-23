@@ -52,7 +52,7 @@ export default class VXsToolsPluginLocale {
     }
 
     protected fromat(key: keyof VXsToolsPluginLocale, ...args: string[]) {
-        let template = this.templates[key];
+        let template = this.templates[key] ?? key;
         return template.format(...args);
     }
 
