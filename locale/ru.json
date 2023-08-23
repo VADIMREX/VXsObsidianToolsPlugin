@@ -1,0 +1,9 @@
+{
+    "msgNoFolderSet": "Не удалось получить список шаблонов, т.к. не настроена папка с шаблонами.",
+    "msgFailFolderNotFound": "Не удалось получить список шаблонов. Папка {0} не найдена.",
+    "msgNoTemplatesFound": "Шаблоны не найдены",
+    "instructionNavigate": "выбор среди списка",
+    "instructionInsert": "вставка шаблона",
+    "instructionDismiss": "отмена",
+    "promptTypeTemplate": "Начните вводить наименование шаблона..."
+}

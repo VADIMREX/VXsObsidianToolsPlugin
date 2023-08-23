@@ -46,22 +46,22 @@ export default class VXsToolsPluginLocale {
 
     async load() {
         let lang = getLanguage();
-        let localeJson = await this.app.vault.adapter.read(`${pluginRoot}/${lang}.json`);
+        let localeJson = await this.app.vault.adapter.read(`${pluginRoot}/locale/${lang}.json`);
         if (null == localeJson) localeJson = await this.app.vault.adapter.read(`${pluginRoot}/en.json`);
         this.templates = JSON.parse(localeJson);
     }
 
-    protected __format(key: keyof VXsToolsPluginLocale, ...args: string[]) {
+    protected fromat(key: keyof VXsToolsPluginLocale, ...args: string[]) {
         let template = this.templates[key];
         return template.format(...args);
     }
 
-    msgNoFolderSet() { return this.__format("msgNoFolderSet"); }
-    msgFailFolderNotFound(folder: string) { return this.__format("msgFailFolderNotFound", folder); }
-    msgNoTemplatesFound() { return this.__format("msgNoTemplatesFound"); }
-    instructionNavigate() { return this.__format("instructionNavigate"); }
-    instructionInsert() { return this.__format("instructionInsert"); }
-    instructionDismiss() { return this.__format("instructionDismiss"); }
-    promptTypeTemplate() { return this.__format("promptTypeTemplate"); }
+    msgNoFolderSet() { return this.fromat("msgNoFolderSet"); }
+    msgFailFolderNotFound(folder: string) { return this.fromat("msgFailFolderNotFound", folder); }
+    msgNoTemplatesFound() { return this.fromat("msgNoTemplatesFound"); }
+    instructionNavigate() { return this.fromat("instructionNavigate"); }
+    instructionInsert() { return this.fromat("instructionInsert"); }
+    instructionDismiss() { return this.fromat("instructionDismiss"); }
+    promptTypeTemplate() { return this.fromat("promptTypeTemplate"); }
 }
 
