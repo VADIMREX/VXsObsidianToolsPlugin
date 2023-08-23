@@ -1,6 +1,5 @@
-import { App, Notice, Plugin, PluginManifest, TFile, TFolder, normalizePath } from "obsidian";
+import { App, FuzzySuggestModal, Notice, Plugin, PluginManifest, TFile, TFolder, normalizePath } from "obsidian";
 
-import FileSuggestModal from "FileSuggestModal";
 import VXsToolsPluginLocale from "VXsToolsPluginLocale";
 import { VXsToolsPluginSettings } from "VXsToolsPluginSettings";
 import VXsProxyPlugin from "VXsProxyPlugin";
@@ -39,10 +38,9 @@ export default class VXsToolsTemplatePlugin extends VXsProxyPlugin {
     //     super(app, manifest);
     // }
     constructor(basePlugin: Plugin)
-    constructor(appOrPlugin: App | Plugin, manifestOrSettings?: PluginManifest | VXsToolsPluginSettings, locale?: VXsToolsPluginLocale) {
-        
+    constructor(appOrPlugin: App | Plugin, manifest?: PluginManifest) {
         if (appOrPlugin instanceof App)
-            super(appOrPlugin, manifestOrSettings as PluginManifest);
+            super(appOrPlugin, manifest as PluginManifest);
         else {
             super(appOrPlugin);
         }
@@ -93,8 +91,33 @@ export default class VXsToolsTemplatePlugin extends VXsProxyPlugin {
             }
         }
         getTemplates(templateFolder);
-
-        new FileSuggestModal(this.app, this.locale, templateFiles, this.vxsApplyTemplate).open();
+        
+        let onChooseCallback = this.vxsApplyTemplate.bind(this);
+        let pickupModal = new class extends FuzzySuggestModal<TFile> {
+            getItems() {
+                return templateFiles;
+            }
+            onChooseItem(item: TFile) {
+                onChooseCallback(item);
+            }
+            getItemText(item: TFile) {
+                return item.basename
+            }
+        }(this.app);
+        pickupModal.emptyStateText = this.locale.msgNoTemplatesFound();
+        pickupModal.setInstructions([{
+            command: "↑↓",
+            purpose: this.locale.instructionNavigate()
+        }, {
+            command: "↵",
+            purpose: this.locale.instructionInsert()
+        }, {
+            command: "esc",
+            purpose: this.locale.instructionDismiss()
+        }]);
+        pickupModal.setPlaceholder(this.locale.promptTypeTemplate());
+        pickupModal.scope.register([], "Tab", () => !1);
+        pickupModal.open();
     }
 
     async vxsApplyTemplate(templateFile: TFile) {

@@ -1,9 +1,9 @@
 {
-    "msgNoFolderSet": "msgNoFolderSet",
-    "msgFailFolderNotFound": "msgFailFolderNotFound",
-    "msgNoTemplatesFound": "msgNoTemplatesFound",
+    "msgNoFolderSet": "Failed to list templates. No template folder configured.",
+    "msgFailFolderNotFound": "Failed to list templates. Folder {0} not found.",
+    "msgNoTemplatesFound": "No templates found",
     "instructionNavigate": "to navigate",
     "instructionInsert": "to insert template",
     "instructionDismiss": "to dissmiss",
-    "promptTypeTemplate": "promptTypeTemplate"
+    "promptTypeTemplate": "Type name of a template..."
 }
