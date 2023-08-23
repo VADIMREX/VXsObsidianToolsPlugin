@@ -1,15 +1,15 @@
 /// <reference path="wasm_exec.d.ts" />
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile, TFolder, normalizePath, FuzzySuggestModal } from 'obsidian';
+import { Notice, Plugin } from 'obsidian';
 import { DEFAULT_SETTINGS, VXsToolsPluginSettings } from 'VXsToolsPluginSettings';
 import { pluginRoot } from 'VXsToolsPluginConsts';
 import VXsToolsPluginLocale from 'VXsToolsPluginLocale';
 import VXsToolsPluginSettingTab from 'VXsToolsPluginSettingTab';
-import VXsToolsTemplatePlugin from 'VXsToolsTemplatePlugin';
+import VXsTemplatePlugin from 'VXsTemplatePlugin';
 
 export default class VXsToolsPlugin extends Plugin {
 	settings: VXsToolsPluginSettings;
 	locale: VXsToolsPluginLocale;
-	templatePlugin: VXsToolsTemplatePlugin;
+	templatePlugin: VXsTemplatePlugin;
 
 	async onload() {
 		try {
@@ -18,7 +18,7 @@ export default class VXsToolsPlugin extends Plugin {
 			this.locale = new VXsToolsPluginLocale(this.app);
             await this.locale.load()
 
-			this.templatePlugin = new VXsToolsTemplatePlugin(this);
+			this.templatePlugin = new VXsTemplatePlugin(this);
 			this.templatePlugin.locale = this.locale;
 			this.templatePlugin.settings = this.settings;
 			this.templatePlugin.onload();

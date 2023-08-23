@@ -46,8 +46,8 @@ export default class VXsToolsPluginLocale {
 
     async load() {
         let lang = getLanguage();
+        if (!await this.app.vault.adapter.exists(`${pluginRoot}/locale/${lang}.json`)) lang = "en";
         let localeJson = await this.app.vault.adapter.read(`${pluginRoot}/locale/${lang}.json`);
-        if (null == localeJson) localeJson = await this.app.vault.adapter.read(`${pluginRoot}/en.json`);
         this.templates = JSON.parse(localeJson);
     }
 

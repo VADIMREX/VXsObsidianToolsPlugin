@@ -30,7 +30,7 @@ function getCoreTemplateFolder(app: App) {
     return coreTemplatePlugin.options.folder;
 }
 
-export default class VXsToolsTemplatePlugin extends VXsProxyPlugin {
+export default class VXsTemplatePlugin extends VXsProxyPlugin {
     settings: VXsToolsPluginSettings;
     locale: VXsToolsPluginLocale;
 
