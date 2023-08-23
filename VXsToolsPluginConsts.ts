@@ -1,0 +1,1 @@
+export const pluginRoot = ".obsidian/plugins/vxs-obsidian-tools-plugin";
