@@ -1,9 +1,11 @@
 export interface VXsToolsPluginSettings {
 	templateFolder: string;
+    macroFolder: string;
 }
 
 export const DEFAULT_SETTINGS: VXsToolsPluginSettings = {
-	templateFolder: 'default'
+	templateFolder: '_templates',
+    macroFolder: '_macros'
 }
 
 /*

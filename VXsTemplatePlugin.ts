@@ -1,8 +1,10 @@
-import { App, FuzzySuggestModal, Notice, Plugin, PluginManifest, TFile, TFolder, normalizePath } from "obsidian";
+import { App, Editor, FuzzySuggestModal, Notice, Plugin, PluginManifest, TFile, TFolder, arrayBufferToBase64, normalizePath } from "obsidian";
 
 import VXsToolsPluginLocale from "VXsToolsPluginLocale";
 import { VXsToolsPluginSettings } from "VXsToolsPluginSettings";
 import VXsProxyPlugin from "VXsProxyPlugin";
+import { pluginRoot } from "VXsToolsPluginConsts";
+import { constants } from "buffer";
 
 interface CoreTemplatePlugin {
     options: { folder: string };
@@ -30,9 +32,13 @@ function getCoreTemplateFolder(app: App) {
     return coreTemplatePlugin.options.folder;
 }
 
+export type VXsTemplateMacro = (this: VXsTemplatePlugin, options: { pattern: string, editor: Editor, file: TFile, template: string }, args: string[]) => string;
+
 export default class VXsTemplatePlugin extends VXsProxyPlugin {
     settings: VXsToolsPluginSettings;
     locale: VXsToolsPluginLocale;
+
+    macroses: { [key: string]: VXsTemplateMacro };
 
     constructor(app: App, manifest: PluginManifest) //{ // for future splitting
     //     super(app, manifest);
@@ -46,7 +52,7 @@ export default class VXsTemplatePlugin extends VXsProxyPlugin {
         }
     }
 
-    onload(): void {
+    onload() {
         const ribbonIconVXsTemplate = this.addRibbonIcon('lucide-files', "VX's insert template", evt => this.vxsPickTemplate());
         ribbonIconVXsTemplate.addClass('vxs-plugin-ribbon-class');
 
@@ -55,11 +61,34 @@ export default class VXsTemplatePlugin extends VXsProxyPlugin {
             name: "VX's Insert template",
             callback: () => this.vxsPickTemplate()
         });
+
+        this.macroses = {};
+
+        let loadMacroFile = async (fileName: string) => {
+            let content = await this.app.vault.adapter.readBinary(fileName);
+            let base64Content = arrayBufferToBase64(content);
+            let macroFile = await import(`data:application/javascript;base64, ${base64Content}`) as {[key: string]: any};
+            for (let key in macroFile) {
+                let macro = macroFile[key];
+                if (!(macro instanceof Function)) continue;
+                if ("_default" !== key) {
+                    this.macroses[key] = macro;
+                    continue;
+                }
+                let def = this.macroses["default"] || ((o, a) => undefined);
+                this.macroses["default"] = (options, args) => {
+                    let res = macro.call(this, options, args);
+                    if (undefined !== res) return res;
+                    return def.call(this, options, args);
+                }
+            }
+        };
+        loadMacroFile(`${pluginRoot}/baseMacro.js`);
     }
 
     onunload() {
-        
-	}
+
+    }
 
     syncSettingCoreTemplatePlugin() {
         this.settings.templateFolder = getCoreTemplateFolder(this.app);
@@ -91,7 +120,7 @@ export default class VXsTemplatePlugin extends VXsProxyPlugin {
             }
         }
         getTemplates(templateFolder);
-        
+
         let onChooseCallback = this.vxsApplyTemplate.bind(this);
         let pickupModal = new class extends FuzzySuggestModal<TFile> {
             getItems() {
@@ -128,81 +157,18 @@ export default class VXsTemplatePlugin extends VXsProxyPlugin {
         let editor = activeEditor.editor;
         let file = activeEditor.file;
         let template = await this.app.vault.cachedRead(templateFile);
-        
-        template = template.replace(/{{[^}]+}}/gi, (pattern, args)=> {
-            let macro = pattern.substring(2, pattern.length - 2).split('|');
-            switch(macro[0]) {
-                case "title":
-                    return file?.basename ?? "";
-                case "date":
-                case "time":
-                    let n = {
-                        dateFormat: undefined,
-                        timeFormat: undefined,
-                    }
-                    let moment = window.moment;
-                    let now = moment();    
-                    let dateFormat = "YYYY-MM-DD";
-                    let timeFormat = "HH:mm";
 
-                    if (1 == macro.length) return "date" === macro[0] ? 
-                        now.format(n && n.dateFormat || dateFormat) : 
-                        now.format(n && n.timeFormat || timeFormat);
-                    
-                    if (2 == macro.length) return now.format(macro[1]);
-
-                    let locale = moment.locale();
-                    if (locale == macro[1] || macro[1] == moment.locale(macro[1])) {
-                        now = moment();
-                        let result = "";
-
-                        if (isNaN(+macro[2])) 
-                            result = now.format(macro.slice(2).join("|"));
-
-                        else if (4 == macro.length) {
-                            now.add(+macro[2], 'days');
-                            result = now.format(macro[3]);
-                        }
-
-                        else if (![
-                                "year" , "years" , "y" ,
-                                "month" , "months" , "M" ,
-                                "week" , "weeks" , "w" ,
-                                "day" , "days" , "d" ,
-                                "hour" , "hours" , "h" ,
-                                "minute" , "minutes" , "m" ,
-                                "second" , "seconds" , "s" ,
-                                "millisecond" , "milliseconds" , "ms",
-                                "quarter" , "quarters" , "Q"
-                            ].contains(macro[3])) {
-                            now.add(+macro[2], 'days');
-                            result = now.format(macro.slice(3).join("|"));
-                        }
-
-                        else {
-                            now.add(+macro[2], macro[3] as any);
-                            result = now.format(macro.slice(4).join("|"));
-                        }
-                        
-                        moment.locale(locale);
-                        return result;
-                    }
-                    
-                    return now.format(macro.slice(1).join("|"));
-                default:
-                    // todo backward compatibility with date:<format> and time:<format>
-                    /*
-                    let n = {
-                        dateFormat: undefined,
-                        timeFormat: undefined,
-                    }
-                    let a = window.moment();
-                    let Fj = "YYYY-MM-DD";
-                    let Bj = "HH:mm";
-                    return i ? a.format(i) : "date" === t.toLowerCase() ? a.format(n && n.dateFormat || Fj) : a.format(n && n.timeFormat || Bj);
-                    */
-                    return pattern;
-            }
+        template = template.replace(/{{[^}]+}}/gi, (pattern, args) => {
+            let macroArgs = pattern.substring(2, pattern.length - 2).split('|');
+            let macroName = macroArgs.shift() as string;
+            
+            let macro = (this.macroses[macroName] ?
+                            this.macroses[macroName] : 
+                            this.macroses["default"]);
+            
+            let res = macro.call(this, {pattern, editor, file, template}, macroArgs);
+                
+            return undefined === res ? pattern : res;
         });
         editor?.replaceSelection(template);
         editor?.focus();
