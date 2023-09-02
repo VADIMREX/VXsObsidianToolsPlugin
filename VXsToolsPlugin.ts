@@ -5,6 +5,7 @@ import { pluginRoot } from 'VXsToolsPluginConsts';
 import VXsToolsPluginLocale from 'VXsToolsPluginLocale';
 import VXsToolsPluginSettingTab from 'VXsToolsPluginSettingTab';
 import VXsTemplatePlugin from 'VXsTemplatePlugin';
+import VXsSourceCodeView, { VIEW_TYPE_SOURCECODE } from 'VXsSourceCodeView';
 
 export default class VXsToolsPlugin extends Plugin {
 	settings: VXsToolsPluginSettings;
@@ -39,6 +40,9 @@ export default class VXsToolsPlugin extends Plugin {
 			});
 
 			this.addSettingTab(new VXsToolsPluginSettingTab(this.app, this));
+
+			this.registerView(VIEW_TYPE_SOURCECODE, s => new VXsSourceCodeView(s, this));
+			this.registerExtensions(["js"], VIEW_TYPE_SOURCECODE);
 		}
 		catch (e) {
 			new Notice(`${e}: ${(e as Error).stack}`);
