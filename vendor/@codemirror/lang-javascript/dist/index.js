@@ -1,9 +1,9 @@
-import { parser } from '@lezer-local/javascript';
+import { parser } from '@lezer/javascript';
 import { syntaxTree, LRLanguage, indentNodeProp, continuedIndent, flatIndent, delimitedIndent, foldNodeProp, foldInside, defineLanguageFacet, sublanguageProp, LanguageSupport } from '@codemirror/language';
 import { EditorSelection } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { snippetCompletion, ifNotIn, completeFromList } from '@codemirror/autocomplete';
-import { NodeWeakMap, IterMode } from '@lezer-local/common';
+import { NodeWeakMap, IterMode } from '@lezer/common';
 
 /**
 A collection of JavaScript-related

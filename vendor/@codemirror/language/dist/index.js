@@ -1,7 +1,7 @@
-import { NodeProp, Tree, IterMode, TreeFragment, Parser, NodeType, NodeSet } from '@lezer-local/common';
+import { NodeProp, Tree, IterMode, TreeFragment, Parser, NodeType, NodeSet } from '@lezer/common';
 import { StateEffect, StateField, Facet, EditorState, countColumn, combineConfig, RangeSet, RangeSetBuilder, Prec } from '@codemirror/state';
 import { ViewPlugin, logException, EditorView, Decoration, WidgetType, gutter, GutterMarker } from '@codemirror/view';
-import { tags, tagHighlighter, highlightTree, styleTags } from '@lezer-local/highlight';
+import { tags, tagHighlighter, highlightTree, styleTags } from '@lezer/highlight';
 import { StyleModule } from 'style-mod';
 
 var _a;

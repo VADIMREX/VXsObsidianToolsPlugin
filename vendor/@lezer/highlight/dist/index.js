@@ -1,4 +1,4 @@
-import { NodeProp } from '@lezer-local/common';
+import { NodeProp } from '@lezer/common';
 
 let nextTagID = 0;
 /**

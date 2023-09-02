@@ -1,7 +1,7 @@
 /* Hand-written tokenizers for JavaScript tokens that can't be
    expressed by lezer's built-in tokenizer. */
 
-import {ExternalTokenizer, ContextTracker} from "@lezer-local/lr"
+import {ExternalTokenizer, ContextTracker} from "@lezer/lr"
 import {insertSemi, noSemi, incdec, incdecPrefix,
         spaces, newline, BlockComment, LineComment} from "./parser.terms.js"
 

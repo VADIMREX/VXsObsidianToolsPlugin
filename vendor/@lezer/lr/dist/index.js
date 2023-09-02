@@ -1,4 +1,4 @@
-import { Parser, NodeProp, NodeSet, NodeType, DefaultBufferLength, Tree, IterMode } from '@lezer-local/common';
+import { Parser, NodeProp, NodeSet, NodeType, DefaultBufferLength, Tree, IterMode } from '@lezer/common';
 
 /**
 A parse stack. These are used internally by the parser to track

@@ -1,4 +1,4 @@
-import {styleTags, tags as t} from "@lezer-local/highlight"
+import {styleTags, tags as t} from "@lezer/highlight"
 
 export const jsHighlight = styleTags({
   "get set async static": t.modifier,

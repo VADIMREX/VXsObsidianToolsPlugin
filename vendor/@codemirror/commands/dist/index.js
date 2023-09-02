@@ -1,7 +1,7 @@
 import { Annotation, Facet, combineConfig, StateField, EditorSelection, Transaction, ChangeSet, ChangeDesc, StateEffect, Text, findClusterBreak, countColumn, CharCategory } from '@codemirror/state';
 import { EditorView, Direction } from '@codemirror/view';
 import { IndentContext, getIndentation, indentString, matchBrackets, syntaxTree, getIndentUnit, indentUnit } from '@codemirror/language';
-import { NodeProp } from '@lezer-local/common';
+import { NodeProp } from '@lezer/common';
 
 /**
 Comment or uncomment the current selection. Will use line comments

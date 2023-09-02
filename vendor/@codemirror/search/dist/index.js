@@ -1,6 +1,6 @@
 import { showPanel, EditorView, getPanel, Decoration, ViewPlugin, runScopeHandlers } from '@codemirror/view';
 import { codePointAt, fromCodePoint, codePointSize, StateEffect, StateField, EditorSelection, Facet, combineConfig, CharCategory, RangeSetBuilder, Prec, EditorState, findClusterBreak } from '@codemirror/state';
-import elt from 'crelt-local';
+import elt from 'crelt';
 
 const basicNormalize = typeof String.prototype.normalize == "function"
     ? x => x.normalize("NFKD") : x => x;

@@ -1,6 +1,6 @@
 import { Decoration, showPanel, EditorView, ViewPlugin, logException, gutter, showTooltip, hoverTooltip, getPanel, WidgetType, GutterMarker } from '@codemirror/view';
 import { StateEffect, StateField, Facet, combineConfig, RangeSet } from '@codemirror/state';
-import elt from 'crelt-local';
+import elt from 'crelt';
 
 class SelectedDiagnostic {
     constructor(from, to, diagnostic) {
