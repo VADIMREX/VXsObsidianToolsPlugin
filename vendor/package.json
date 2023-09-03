@@ -1,0 +1,19 @@
+{
+  "name": "vendor-codemirror",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "node_modules/.bin/rollup vendor.js -f es -o index.js -p @rollup/plugin-node-resolve",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@codemirror/lang-javascript": "^6.2.1",
+    "@codemirror/theme-one-dark": "^6.1.2",
+    "@rollup/plugin-node-resolve": "^15.2.1",
+    "codemirror": "^6.0.1",
+    "rollup": "^3.28.1"
+  }
+}

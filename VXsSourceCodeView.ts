@@ -1,18 +1,17 @@
 import VXsToolsPlugin from "VXsToolsPlugin";
 import { TextFileView, View, WorkspaceLeaf } from "obsidian";
 
-import { EditorView, basicSetup } from "codemirror-local";
-import { javascript } from "@codemirror-local/lang-javascript";
-import { oneDark } from "@codemirror-local/theme-one-dark/dist";
+import * as vendor from "vendor";
 
-// import { Extension, StateField } from '@codemirror/state';
-// import { EditorView, ViewPlugin } from '@codemirror/view';
-// import * as CodeMirror from 'codemirror';
+const { EditorView, basicSetup } = vendor.default.codemirror;
+const { javascript } = vendor.default["@codemirror"]["lang-javascript"];
+const { oneDark } = vendor.default["@codemirror"]["theme-one-dark"];
 
 export const VIEW_TYPE_SOURCECODE = "sourcecode";
 
 export default class VXsSourceCodeView extends TextFileView {
     plugin: VXsToolsPlugin;
+    editorEl: HTMLDivElement;
     editor: EditorView;
 
     constructor(leaf: WorkspaceLeaf, plugin: VXsToolsPlugin) {
@@ -21,16 +20,17 @@ export default class VXsSourceCodeView extends TextFileView {
     }
 
     newEditor(): void {
+        this.editorEl = this.contentEl.createDiv("markdown-source-view mod-cm5");
         this.editor = new EditorView({
             extensions: [
                 basicSetup,
                 javascript(),
                 oneDark
             ],
-            parent: this.contentEl
+            parent: this.editorEl
         });
-        this.editor.contentDOM.style.fontFamily = "Consolas";
-        this.editor.dom.style.fontFamily = "Consolas";
+        this.editorEl.style.fontFamily = "Consolas";
+        this.editor.dom.style.height = "100%";
     }
 
     onload(): void {
