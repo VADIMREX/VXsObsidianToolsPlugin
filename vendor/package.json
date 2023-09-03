@@ -2,9 +2,9 @@
   "name": "vendor-codemirror",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "vendor.bundle.js",
   "scripts": {
-    "build": "node_modules/.bin/rollup vendor.js -f es -o index.js -p @rollup/plugin-node-resolve",
+    "build": "node_modules/.bin/rollup vendor.js -f es -o vendor.bundle.js -p @rollup/plugin-node-resolve",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",

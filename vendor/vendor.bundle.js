@@ -26135,4 +26135,4 @@ const libs = {
     }
 };
 
-export { libs as default };
+export { EditorView, basicSetup, libs as default, javascript, oneDark };
