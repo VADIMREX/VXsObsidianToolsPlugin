@@ -12,6 +12,9 @@ Another plugin with small diffrent utilities for [Obsidian](https://obsidian.md)
   - [ ] pass macro as argument for macro
 - [ ] unity loader
 - [ ] js editor
+  - [x] display *.js files
+  - [ ] open *.js file (almost done)
+  - [ ] save changes
 - [ ] fb2 viewer
 ## future plans:
 - possibly split functionality in separate plugins
