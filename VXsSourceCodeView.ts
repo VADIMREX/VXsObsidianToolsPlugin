@@ -1,11 +1,11 @@
 import VXsToolsPlugin from "VXsToolsPlugin";
 import { TextFileView, View, WorkspaceLeaf } from "obsidian";
 
-import * as vendor from "vendor";
-
-const { EditorView, basicSetup } = vendor.default.codemirror;
-const { javascript } = vendor.default["@codemirror"]["lang-javascript"];
-const { oneDark } = vendor.default["@codemirror"]["theme-one-dark"];
+import { 
+    EditorView, basicSetup, 
+    javascript, 
+    oneDark 
+} from "vendor";
 
 export const VIEW_TYPE_SOURCECODE = "sourcecode";
 
@@ -29,7 +29,9 @@ export default class VXsSourceCodeView extends TextFileView {
             ],
             parent: this.editorEl
         });
+        // some kostyls, todo: move to CSS
         this.editorEl.style.fontFamily = "Consolas";
+        this.editorEl.style.padding = "0px";
         this.editor.dom.style.height = "100%";
     }
 
