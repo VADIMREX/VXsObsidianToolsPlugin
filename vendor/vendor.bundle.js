@@ -3883,6 +3883,39 @@ function findColumn(string, col, tabSize, strict) {
     return strict === true ? -1 : string.length;
 }
 
+var _codemirror_state = /*#__PURE__*/Object.freeze({
+   __proto__: null,
+   Annotation: Annotation,
+   AnnotationType: AnnotationType,
+   ChangeDesc: ChangeDesc,
+   ChangeSet: ChangeSet,
+   get CharCategory () { return CharCategory; },
+   Compartment: Compartment,
+   EditorSelection: EditorSelection,
+   EditorState: EditorState,
+   Facet: Facet,
+   Line: Line,
+   get MapMode () { return MapMode; },
+   Prec: Prec,
+   Range: Range$1,
+   RangeSet: RangeSet,
+   RangeSetBuilder: RangeSetBuilder,
+   RangeValue: RangeValue,
+   SelectionRange: SelectionRange,
+   StateEffect: StateEffect,
+   StateEffectType: StateEffectType,
+   StateField: StateField,
+   Text: Text,
+   Transaction: Transaction,
+   codePointAt: codePointAt,
+   codePointSize: codePointSize,
+   combineConfig: combineConfig,
+   countColumn: countColumn,
+   findClusterBreak: findClusterBreak,
+   findColumn: findColumn,
+   fromCodePoint: fromCodePoint
+});
+
 const C = "\u037c";
 const COUNT = typeof Symbol == "undefined" ? "__" + C : Symbol.for(C);
 const SET = typeof Symbol == "undefined" ? "__styleSet" + Math.floor(Math.random() * 1e8) : Symbol("styleSet");
@@ -12860,6 +12893,33 @@ class TabWidget extends WidgetType {
     ignoreEvent() { return false; }
 }
 
+const plugin = /*@__PURE__*/ViewPlugin.fromClass(class {
+    constructor() {
+        this.height = 1000;
+        this.attrs = { style: "padding-bottom: 1000px" };
+    }
+    update(update) {
+        let { view } = update;
+        let height = view.viewState.editorHeight - view.defaultLineHeight - view.documentPadding.top - 0.5;
+        if (height >= 0 && height != this.height) {
+            this.height = height;
+            this.attrs = { style: `padding-bottom: ${height}px` };
+        }
+    }
+});
+/**
+Returns an extension that makes sure the content has a bottom
+margin equivalent to the height of the editor, minus one line
+height, so that every line in the document can be scrolled to the
+top of the editor.
+
+This is only meaningful when the editor is scrollable, and should
+not be enabled in editors that take the size of their content.
+*/
+function scrollPastEnd() {
+    return [plugin, contentAttributes.of(view => { var _a; return ((_a = view.plugin(plugin)) === null || _a === void 0 ? void 0 : _a.attrs) || null; })];
+}
+
 /**
 Mark lines that have a cursor on them with the `"cm-activeLine"`
 DOM class.
@@ -12890,6 +12950,51 @@ const activeLineHighlighter = /*@__PURE__*/ViewPlugin.fromClass(class {
 }, {
     decorations: v => v.decorations
 });
+
+class Placeholder extends WidgetType {
+    constructor(content) {
+        super();
+        this.content = content;
+    }
+    toDOM() {
+        let wrap = document.createElement("span");
+        wrap.className = "cm-placeholder";
+        wrap.style.pointerEvents = "none";
+        wrap.appendChild(typeof this.content == "string" ? document.createTextNode(this.content) : this.content);
+        if (typeof this.content == "string")
+            wrap.setAttribute("aria-label", "placeholder " + this.content);
+        else
+            wrap.setAttribute("aria-hidden", "true");
+        return wrap;
+    }
+    coordsAt(dom) {
+        let rects = dom.firstChild ? clientRectsFor(dom.firstChild) : [];
+        if (!rects.length)
+            return null;
+        let style = window.getComputedStyle(dom.parentNode);
+        let rect = flattenRect(rects[0], style.direction != "rtl");
+        let lineHeight = parseInt(style.lineHeight);
+        if (rect.bottom - rect.top > lineHeight * 1.5)
+            return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.top + lineHeight };
+        return rect;
+    }
+    ignoreEvent() { return false; }
+}
+/**
+Extension that enables a placeholder—a piece of example content
+to show when the editor is empty.
+*/
+function placeholder(content) {
+    return ViewPlugin.fromClass(class {
+        constructor(view) {
+            this.view = view;
+            this.placeholder = content
+                ? Decoration.set([Decoration.widget({ widget: new Placeholder(content), side: 1 }).range(0)])
+                : Decoration.none;
+        }
+        get decorations() { return this.view.state.doc.length ? Decoration.none : this.placeholder; }
+    }, { decorations: v => v.decorations });
+}
 
 // Don't compute precise column positions for line offsets above this
 // (since it could get expensive). Assume offset==column for them.
@@ -13066,6 +13171,12 @@ class TooltipViewManager {
         this.tooltipViews = tooltipViews;
         return true;
     }
+}
+/**
+Creates an extension that configures tooltip behavior.
+*/
+function tooltips(config = {}) {
+    return tooltipConfig.of(config);
 }
 function windowSpace(view) {
     let { win } = view;
@@ -13573,7 +13684,27 @@ function getTooltip(view, tooltip) {
     let found = plugin.manager.tooltips.indexOf(tooltip);
     return found < 0 ? null : plugin.manager.tooltipViews[found];
 }
+/**
+Returns true if any hover tooltips are currently active.
+*/
+function hasHoverTooltips(state) {
+    return state.facet(showHoverTooltip).some(x => x);
+}
 const closeHoverTooltipEffect = /*@__PURE__*/StateEffect.define();
+/**
+Transaction effect that closes all hover tooltips.
+*/
+const closeHoverTooltips = /*@__PURE__*/closeHoverTooltipEffect.of(null);
+/**
+Tell the tooltip extension to recompute the position of the active
+tooltips. This can be useful when something happens (such as a
+re-positioning or CSS change affecting the editor) that could
+invalidate the existing tooltip positions.
+*/
+function repositionTooltips(view) {
+    var _a;
+    (_a = view.plugin(tooltipPlugin)) === null || _a === void 0 ? void 0 : _a.maybeMeasure();
+}
 
 const panelConfig = /*@__PURE__*/Facet.define({
     combine(configs) {
@@ -13585,6 +13716,12 @@ const panelConfig = /*@__PURE__*/Facet.define({
         return { topContainer, bottomContainer };
     }
 });
+/**
+Configures the panel-managing extension.
+*/
+function panels(config) {
+    return config ? [panelConfig.of(config)] : [];
+}
 /**
 Get the active panel created by the given constructor, if any.
 This can be useful when you need access to your panels' DOM
@@ -14204,6 +14341,109 @@ line](https://codemirror.net/6/docs/ref/#view.highlightActiveLine).
 function highlightActiveLineGutter() {
     return activeLineGutterHighlighter;
 }
+
+const WhitespaceDeco = /*@__PURE__*/new Map();
+function getWhitespaceDeco(space) {
+    let deco = WhitespaceDeco.get(space);
+    if (!deco)
+        WhitespaceDeco.set(space, deco = Decoration.mark({
+            attributes: space === "\t" ? {
+                class: "cm-highlightTab",
+            } : {
+                class: "cm-highlightSpace",
+                "data-display": space.replace(/ /g, "·")
+            }
+        }));
+    return deco;
+}
+function matcher(decorator) {
+    return ViewPlugin.define(view => ({
+        decorations: decorator.createDeco(view),
+        update(u) {
+            this.decorations = decorator.updateDeco(u, this.decorations);
+        },
+    }), {
+        decorations: v => v.decorations
+    });
+}
+const whitespaceHighlighter = /*@__PURE__*/matcher(/*@__PURE__*/new MatchDecorator({
+    regexp: /\t| +/g,
+    decoration: match => getWhitespaceDeco(match[0]),
+    boundary: /\S/,
+}));
+/**
+Returns an extension that highlights whitespace, adding a
+`cm-highlightSpace` class to stretches of spaces, and a
+`cm-highlightTab` class to individual tab characters. By default,
+the former are shown as faint dots, and the latter as arrows.
+*/
+function highlightWhitespace() {
+    return whitespaceHighlighter;
+}
+const trailingHighlighter = /*@__PURE__*/matcher(/*@__PURE__*/new MatchDecorator({
+    regexp: /\s+$/g,
+    decoration: /*@__PURE__*/Decoration.mark({ class: "cm-trailingSpace" }),
+    boundary: /\S/,
+}));
+/**
+Returns an extension that adds a `cm-trailingSpace` class to all
+trailing whitespace.
+*/
+function highlightTrailingWhitespace() {
+    return trailingHighlighter;
+}
+
+/**
+@internal
+*/
+const __test = { HeightMap, HeightOracle, MeasuredHeights, QueryType: QueryType$1, ChangedRange, computeOrder, moveVisually };
+
+var _codemirror_view = /*#__PURE__*/Object.freeze({
+   __proto__: null,
+   BidiSpan: BidiSpan,
+   BlockInfo: BlockInfo,
+   get BlockType () { return BlockType; },
+   Decoration: Decoration,
+   get Direction () { return Direction; },
+   EditorView: EditorView,
+   GutterMarker: GutterMarker,
+   MatchDecorator: MatchDecorator,
+   RectangleMarker: RectangleMarker,
+   ViewPlugin: ViewPlugin,
+   ViewUpdate: ViewUpdate,
+   WidgetType: WidgetType,
+   __test: __test,
+   closeHoverTooltips: closeHoverTooltips,
+   crosshairCursor: crosshairCursor,
+   drawSelection: drawSelection,
+   dropCursor: dropCursor,
+   getPanel: getPanel,
+   getTooltip: getTooltip,
+   gutter: gutter,
+   gutterLineClass: gutterLineClass,
+   gutters: gutters,
+   hasHoverTooltips: hasHoverTooltips,
+   highlightActiveLine: highlightActiveLine,
+   highlightActiveLineGutter: highlightActiveLineGutter,
+   highlightSpecialChars: highlightSpecialChars,
+   highlightTrailingWhitespace: highlightTrailingWhitespace,
+   highlightWhitespace: highlightWhitespace,
+   hoverTooltip: hoverTooltip,
+   keymap: keymap,
+   layer: layer,
+   lineNumberMarkers: lineNumberMarkers,
+   lineNumbers: lineNumbers,
+   logException: logException,
+   panels: panels,
+   placeholder: placeholder,
+   rectangularSelection: rectangularSelection,
+   repositionTooltips: repositionTooltips,
+   runScopeHandlers: runScopeHandlers,
+   scrollPastEnd: scrollPastEnd,
+   showPanel: showPanel,
+   showTooltip: showTooltip,
+   tooltips: tooltips
+});
 
 // FIXME profile adding a per-Tree TreeNode cache, validating it by
 // parent pointer
@@ -16867,6 +17107,58 @@ function syntaxTree(state) {
     return field ? field.tree : Tree.empty;
 }
 /**
+Try to get a parse tree that spans at least up to `upto`. The
+method will do at most `timeout` milliseconds of work to parse
+up to that point if the tree isn't already available.
+*/
+function ensureSyntaxTree(state, upto, timeout = 50) {
+    var _a;
+    let parse = (_a = state.field(Language.state, false)) === null || _a === void 0 ? void 0 : _a.context;
+    if (!parse)
+        return null;
+    let oldVieport = parse.viewport;
+    parse.updateViewport({ from: 0, to: upto });
+    let result = parse.isDone(upto) || parse.work(timeout, upto) ? parse.tree : null;
+    parse.updateViewport(oldVieport);
+    return result;
+}
+/**
+Queries whether there is a full syntax tree available up to the
+given document position. If there isn't, the background parse
+process _might_ still be working and update the tree further, but
+there is no guarantee of that—the parser will [stop
+working](https://codemirror.net/6/docs/ref/#language.syntaxParserRunning) when it has spent a
+certain amount of time or has moved beyond the visible viewport.
+Always returns false if no language has been enabled.
+*/
+function syntaxTreeAvailable(state, upto = state.doc.length) {
+    var _a;
+    return ((_a = state.field(Language.state, false)) === null || _a === void 0 ? void 0 : _a.context.isDone(upto)) || false;
+}
+/**
+Move parsing forward, and update the editor state afterwards to
+reflect the new tree. Will work for at most `timeout`
+milliseconds. Returns true if the parser managed get to the given
+position in that time.
+*/
+function forceParsing(view, upto = view.viewport.to, timeout = 100) {
+    let success = ensureSyntaxTree(view.state, upto, timeout);
+    if (success != syntaxTree(view.state))
+        view.dispatch({});
+    return !!success;
+}
+/**
+Tells you whether the language parser is planning to do more
+parsing work (in a `requestIdleCallback` pseudo-thread) or has
+stopped running, either because it parsed the entire document,
+because it spent too much time and was cut off, or because there
+is no language parser enabled.
+*/
+function syntaxParserRunning(view) {
+    var _a;
+    return ((_a = view.plugin(parseWorker)) === null || _a === void 0 ? void 0 : _a.isWorking()) || false;
+}
+/**
 Lezer-style
 [`Input`](https://lezer.codemirror.net/docs/ref#common.Input)
 object for a [`Text`](https://codemirror.net/6/docs/ref/#state.Text) object.
@@ -17317,6 +17609,103 @@ class LanguageSupport {
         this.extension = [language, support];
     }
 }
+/**
+Language descriptions are used to store metadata about languages
+and to dynamically load them. Their main role is finding the
+appropriate language for a filename or dynamically loading nested
+parsers.
+*/
+class LanguageDescription {
+    constructor(
+    /**
+    The name of this language.
+    */
+    name, 
+    /**
+    Alternative names for the mode (lowercased, includes `this.name`).
+    */
+    alias, 
+    /**
+    File extensions associated with this language.
+    */
+    extensions, 
+    /**
+    Optional filename pattern that should be associated with this
+    language.
+    */
+    filename, loadFunc, 
+    /**
+    If the language has been loaded, this will hold its value.
+    */
+    support = undefined) {
+        this.name = name;
+        this.alias = alias;
+        this.extensions = extensions;
+        this.filename = filename;
+        this.loadFunc = loadFunc;
+        this.support = support;
+        this.loading = null;
+    }
+    /**
+    Start loading the the language. Will return a promise that
+    resolves to a [`LanguageSupport`](https://codemirror.net/6/docs/ref/#language.LanguageSupport)
+    object when the language successfully loads.
+    */
+    load() {
+        return this.loading || (this.loading = this.loadFunc().then(support => this.support = support, err => { this.loading = null; throw err; }));
+    }
+    /**
+    Create a language description.
+    */
+    static of(spec) {
+        let { load, support } = spec;
+        if (!load) {
+            if (!support)
+                throw new RangeError("Must pass either 'load' or 'support' to LanguageDescription.of");
+            load = () => Promise.resolve(support);
+        }
+        return new LanguageDescription(spec.name, (spec.alias || []).concat(spec.name).map(s => s.toLowerCase()), spec.extensions || [], spec.filename, load, support);
+    }
+    /**
+    Look for a language in the given array of descriptions that
+    matches the filename. Will first match
+    [`filename`](https://codemirror.net/6/docs/ref/#language.LanguageDescription.filename) patterns,
+    and then [extensions](https://codemirror.net/6/docs/ref/#language.LanguageDescription.extensions),
+    and return the first language that matches.
+    */
+    static matchFilename(descs, filename) {
+        for (let d of descs)
+            if (d.filename && d.filename.test(filename))
+                return d;
+        let ext = /\.([^.]+)$/.exec(filename);
+        if (ext)
+            for (let d of descs)
+                if (d.extensions.indexOf(ext[1]) > -1)
+                    return d;
+        return null;
+    }
+    /**
+    Look for a language whose name or alias matches the the given
+    name (case-insensitively). If `fuzzy` is true, and no direct
+    matchs is found, this'll also search for a language whose name
+    or alias occurs in the string (for names shorter than three
+    characters, only when surrounded by non-word characters).
+    */
+    static matchLanguageName(descs, name, fuzzy = true) {
+        name = name.toLowerCase();
+        for (let d of descs)
+            if (d.alias.some(a => a == name))
+                return d;
+        if (fuzzy)
+            for (let d of descs)
+                for (let a of d.alias) {
+                    let found = name.indexOf(a);
+                    if (found > -1 && (a.length > 2 || !/\w/.test(name[found - 1]) && !/\w/.test(name[found + a.length])))
+                        return d;
+                }
+        return null;
+    }
+}
 
 /**
 Facet that defines a way to provide a function that computes the
@@ -17391,6 +17780,31 @@ function getIndentation(context, pos) {
     }
     let tree = syntaxTree(context.state);
     return tree.length >= pos ? syntaxIndentation(context, tree, pos) : null;
+}
+/**
+Create a change set that auto-indents all lines touched by the
+given document range.
+*/
+function indentRange(state, from, to) {
+    let updated = Object.create(null);
+    let context = new IndentContext(state, { overrideIndentation: start => { var _a; return (_a = updated[start]) !== null && _a !== void 0 ? _a : -1; } });
+    let changes = [];
+    for (let pos = from; pos <= to;) {
+        let line = state.doc.lineAt(pos);
+        pos = line.to + 1;
+        let indent = getIndentation(context, line.from);
+        if (indent == null)
+            continue;
+        if (!/\S/.test(line.text))
+            indent = 0;
+        let cur = /^\s*/.exec(line.text)[0];
+        let norm = indentString(state, indent);
+        if (cur != norm) {
+            updated[line.from] = indent;
+            changes.push({ from: line.from, to: line.from + cur.length, insert: norm });
+        }
+    }
+    return state.changes(changes);
 }
 /**
 Indentation contexts are used when calling [indentation
@@ -17848,6 +18262,13 @@ const foldState = /*@__PURE__*/StateField.define({
         return Decoration.set(ranges, true);
     }
 });
+/**
+Get a [range set](https://codemirror.net/6/docs/ref/#state.RangeSet) containing the folded ranges
+in the given state.
+*/
+function foldedRanges(state) {
+    return state.field(foldState, false) || RangeSet.empty;
+}
 function findFold(state, from, to) {
     var _a;
     let found = null;
@@ -17931,6 +18352,41 @@ const unfoldAll = view => {
     field.between(0, view.state.doc.length, (from, to) => { effects.push(unfoldEffect.of({ from, to })); });
     view.dispatch({ effects });
     return true;
+};
+// Find the foldable region containing the given line, if one exists
+function foldableContainer(view, lineBlock) {
+    // Look backwards through line blocks until we find a foldable region that
+    // intersects with the line
+    for (let line = lineBlock;;) {
+        let foldableRegion = foldable(view.state, line.from, line.to);
+        if (foldableRegion && foldableRegion.to > lineBlock.from)
+            return foldableRegion;
+        if (!line.from)
+            return null;
+        line = view.lineBlockAt(line.from - 1);
+    }
+}
+/**
+Toggle folding at cursors. Unfolds if there is an existing fold
+starting in that line, tries to find a foldable range around it
+otherwise.
+*/
+const toggleFold = (view) => {
+    let effects = [];
+    for (let line of selectedLines(view)) {
+        let folded = findFold(view.state, line.from, line.to);
+        if (folded) {
+            effects.push(unfoldEffect.of(folded), announceFold(view, folded, false));
+        }
+        else {
+            let foldRange = foldableContainer(view, line);
+            if (foldRange)
+                effects.push(foldEffect.of(foldRange), announceFold(view, foldRange));
+        }
+    }
+    if (effects.length > 0)
+        view.dispatch({ effects: maybeEnable(view.state, effects) });
+    return !!effects.length;
 };
 /**
 Default fold-related key bindings.
@@ -18173,6 +18629,26 @@ function syntaxHighlighting(highlighter, options) {
         ext.push(highlighterFacet.of(highlighter));
     return ext;
 }
+/**
+Returns the CSS classes (if any) that the highlighters active in
+the state would assign to the given style
+[tags](https://lezer.codemirror.net/docs/ref#highlight.Tag) and
+(optional) language
+[scope](https://codemirror.net/6/docs/ref/#language.HighlightStyle^define^options.scope).
+*/
+function highlightingFor(state, tags, scope) {
+    let highlighters = getHighlighters(state);
+    let result = null;
+    if (highlighters)
+        for (let highlighter of highlighters) {
+            if (!highlighter.scope || scope && highlighter.scope(scope)) {
+                let cls = highlighter.style(tags);
+                if (cls)
+                    result = result ? result + " " + cls : cls;
+            }
+        }
+    return result;
+}
 class TreeHighlighter {
     constructor(view) {
         this.markCache = Object.create(null);
@@ -18411,8 +18887,473 @@ function matchPlainBrackets(state, pos, dir, tree, tokenType, maxScanDistance, b
     }
     return iter.done ? { start: startToken, matched: false } : null;
 }
+
+// Counts the column offset in a string, taking tabs into account.
+// Used mostly to find indentation.
+function countCol(string, end, tabSize, startIndex = 0, startValue = 0) {
+    if (end == null) {
+        end = string.search(/[^\s\u00a0]/);
+        if (end == -1)
+            end = string.length;
+    }
+    let n = startValue;
+    for (let i = startIndex; i < end; i++) {
+        if (string.charCodeAt(i) == 9)
+            n += tabSize - (n % tabSize);
+        else
+            n++;
+    }
+    return n;
+}
+/**
+Encapsulates a single line of input. Given to stream syntax code,
+which uses it to tokenize the content.
+*/
+class StringStream {
+    /**
+    Create a stream.
+    */
+    constructor(
+    /**
+    The line.
+    */
+    string, tabSize, 
+    /**
+    The current indent unit size.
+    */
+    indentUnit, overrideIndent) {
+        this.string = string;
+        this.tabSize = tabSize;
+        this.indentUnit = indentUnit;
+        this.overrideIndent = overrideIndent;
+        /**
+        The current position on the line.
+        */
+        this.pos = 0;
+        /**
+        The start position of the current token.
+        */
+        this.start = 0;
+        this.lastColumnPos = 0;
+        this.lastColumnValue = 0;
+    }
+    /**
+    True if we are at the end of the line.
+    */
+    eol() { return this.pos >= this.string.length; }
+    /**
+    True if we are at the start of the line.
+    */
+    sol() { return this.pos == 0; }
+    /**
+    Get the next code unit after the current position, or undefined
+    if we're at the end of the line.
+    */
+    peek() { return this.string.charAt(this.pos) || undefined; }
+    /**
+    Read the next code unit and advance `this.pos`.
+    */
+    next() {
+        if (this.pos < this.string.length)
+            return this.string.charAt(this.pos++);
+    }
+    /**
+    Match the next character against the given string, regular
+    expression, or predicate. Consume and return it if it matches.
+    */
+    eat(match) {
+        let ch = this.string.charAt(this.pos);
+        let ok;
+        if (typeof match == "string")
+            ok = ch == match;
+        else
+            ok = ch && (match instanceof RegExp ? match.test(ch) : match(ch));
+        if (ok) {
+            ++this.pos;
+            return ch;
+        }
+    }
+    /**
+    Continue matching characters that match the given string,
+    regular expression, or predicate function. Return true if any
+    characters were consumed.
+    */
+    eatWhile(match) {
+        let start = this.pos;
+        while (this.eat(match)) { }
+        return this.pos > start;
+    }
+    /**
+    Consume whitespace ahead of `this.pos`. Return true if any was
+    found.
+    */
+    eatSpace() {
+        let start = this.pos;
+        while (/[\s\u00a0]/.test(this.string.charAt(this.pos)))
+            ++this.pos;
+        return this.pos > start;
+    }
+    /**
+    Move to the end of the line.
+    */
+    skipToEnd() { this.pos = this.string.length; }
+    /**
+    Move to directly before the given character, if found on the
+    current line.
+    */
+    skipTo(ch) {
+        let found = this.string.indexOf(ch, this.pos);
+        if (found > -1) {
+            this.pos = found;
+            return true;
+        }
+    }
+    /**
+    Move back `n` characters.
+    */
+    backUp(n) { this.pos -= n; }
+    /**
+    Get the column position at `this.pos`.
+    */
+    column() {
+        if (this.lastColumnPos < this.start) {
+            this.lastColumnValue = countCol(this.string, this.start, this.tabSize, this.lastColumnPos, this.lastColumnValue);
+            this.lastColumnPos = this.start;
+        }
+        return this.lastColumnValue;
+    }
+    /**
+    Get the indentation column of the current line.
+    */
+    indentation() {
+        var _a;
+        return (_a = this.overrideIndent) !== null && _a !== void 0 ? _a : countCol(this.string, null, this.tabSize);
+    }
+    /**
+    Match the input against the given string or regular expression
+    (which should start with a `^`). Return true or the regexp match
+    if it matches.
+    
+    Unless `consume` is set to `false`, this will move `this.pos`
+    past the matched text.
+    
+    When matching a string `caseInsensitive` can be set to true to
+    make the match case-insensitive.
+    */
+    match(pattern, consume, caseInsensitive) {
+        if (typeof pattern == "string") {
+            let cased = (str) => caseInsensitive ? str.toLowerCase() : str;
+            let substr = this.string.substr(this.pos, pattern.length);
+            if (cased(substr) == cased(pattern)) {
+                if (consume !== false)
+                    this.pos += pattern.length;
+                return true;
+            }
+            else
+                return null;
+        }
+        else {
+            let match = this.string.slice(this.pos).match(pattern);
+            if (match && match.index > 0)
+                return null;
+            if (match && consume !== false)
+                this.pos += match[0].length;
+            return match;
+        }
+    }
+    /**
+    Get the current token.
+    */
+    current() { return this.string.slice(this.start, this.pos); }
+}
+
+function fullParser(spec) {
+    return {
+        name: spec.name || "",
+        token: spec.token,
+        blankLine: spec.blankLine || (() => { }),
+        startState: spec.startState || (() => true),
+        copyState: spec.copyState || defaultCopyState,
+        indent: spec.indent || (() => null),
+        languageData: spec.languageData || {},
+        tokenTable: spec.tokenTable || noTokens
+    };
+}
+function defaultCopyState(state) {
+    if (typeof state != "object")
+        return state;
+    let newState = {};
+    for (let prop in state) {
+        let val = state[prop];
+        newState[prop] = (val instanceof Array ? val.slice() : val);
+    }
+    return newState;
+}
+const IndentedFrom = /*@__PURE__*/new WeakMap();
+/**
+A [language](https://codemirror.net/6/docs/ref/#language.Language) class based on a CodeMirror
+5-style [streaming parser](https://codemirror.net/6/docs/ref/#language.StreamParser).
+*/
+class StreamLanguage extends Language {
+    constructor(parser) {
+        let data = defineLanguageFacet(parser.languageData);
+        let p = fullParser(parser), self;
+        let impl = new class extends Parser {
+            createParse(input, fragments, ranges) {
+                return new Parse$1(self, input, fragments, ranges);
+            }
+        };
+        super(data, impl, [indentService.of((cx, pos) => this.getIndent(cx, pos))], parser.name);
+        this.topNode = docID(data);
+        self = this;
+        this.streamParser = p;
+        this.stateAfter = new NodeProp({ perNode: true });
+        this.tokenTable = parser.tokenTable ? new TokenTable(p.tokenTable) : defaultTokenTable;
+    }
+    /**
+    Define a stream language.
+    */
+    static define(spec) { return new StreamLanguage(spec); }
+    getIndent(cx, pos) {
+        let tree = syntaxTree(cx.state), at = tree.resolve(pos);
+        while (at && at.type != this.topNode)
+            at = at.parent;
+        if (!at)
+            return null;
+        let from = undefined;
+        let { overrideIndentation } = cx.options;
+        if (overrideIndentation) {
+            from = IndentedFrom.get(cx.state);
+            if (from != null && from < pos - 1e4)
+                from = undefined;
+        }
+        let start = findState(this, tree, 0, at.from, from !== null && from !== void 0 ? from : pos), statePos, state;
+        if (start) {
+            state = start.state;
+            statePos = start.pos + 1;
+        }
+        else {
+            state = this.streamParser.startState(cx.unit);
+            statePos = 0;
+        }
+        if (pos - statePos > 10000 /* MaxIndentScanDist */)
+            return null;
+        while (statePos < pos) {
+            let line = cx.state.doc.lineAt(statePos), end = Math.min(pos, line.to);
+            if (line.length) {
+                let indentation = overrideIndentation ? overrideIndentation(line.from) : -1;
+                let stream = new StringStream(line.text, cx.state.tabSize, cx.unit, indentation < 0 ? undefined : indentation);
+                while (stream.pos < end - line.from)
+                    readToken$1(this.streamParser.token, stream, state);
+            }
+            else {
+                this.streamParser.blankLine(state, cx.unit);
+            }
+            if (end == pos)
+                break;
+            statePos = line.to + 1;
+        }
+        let line = cx.lineAt(pos);
+        if (overrideIndentation && from == null)
+            IndentedFrom.set(cx.state, line.from);
+        return this.streamParser.indent(state, /^\s*(.*)/.exec(line.text)[1], cx);
+    }
+    get allowsNesting() { return false; }
+}
+function findState(lang, tree, off, startPos, before) {
+    let state = off >= startPos && off + tree.length <= before && tree.prop(lang.stateAfter);
+    if (state)
+        return { state: lang.streamParser.copyState(state), pos: off + tree.length };
+    for (let i = tree.children.length - 1; i >= 0; i--) {
+        let child = tree.children[i], pos = off + tree.positions[i];
+        let found = child instanceof Tree && pos < before && findState(lang, child, pos, startPos, before);
+        if (found)
+            return found;
+    }
+    return null;
+}
+function cutTree(lang, tree, from, to, inside) {
+    if (inside && from <= 0 && to >= tree.length)
+        return tree;
+    if (!inside && tree.type == lang.topNode)
+        inside = true;
+    for (let i = tree.children.length - 1; i >= 0; i--) {
+        let pos = tree.positions[i], child = tree.children[i], inner;
+        if (pos < to && child instanceof Tree) {
+            if (!(inner = cutTree(lang, child, from - pos, to - pos, inside)))
+                break;
+            return !inside ? inner
+                : new Tree(tree.type, tree.children.slice(0, i).concat(inner), tree.positions.slice(0, i + 1), pos + inner.length);
+        }
+    }
+    return null;
+}
+function findStartInFragments(lang, fragments, startPos, editorState) {
+    for (let f of fragments) {
+        let from = f.from + (f.openStart ? 25 : 0), to = f.to - (f.openEnd ? 25 : 0);
+        let found = from <= startPos && to > startPos && findState(lang, f.tree, 0 - f.offset, startPos, to), tree;
+        if (found && (tree = cutTree(lang, f.tree, startPos + f.offset, found.pos + f.offset, false)))
+            return { state: found.state, tree };
+    }
+    return { state: lang.streamParser.startState(editorState ? getIndentUnit(editorState) : 4), tree: Tree.empty };
+}
+let Parse$1 = class Parse {
+    constructor(lang, input, fragments, ranges) {
+        this.lang = lang;
+        this.input = input;
+        this.fragments = fragments;
+        this.ranges = ranges;
+        this.stoppedAt = null;
+        this.chunks = [];
+        this.chunkPos = [];
+        this.chunk = [];
+        this.chunkReused = undefined;
+        this.rangeIndex = 0;
+        this.to = ranges[ranges.length - 1].to;
+        let context = ParseContext.get(), from = ranges[0].from;
+        let { state, tree } = findStartInFragments(lang, fragments, from, context === null || context === void 0 ? void 0 : context.state);
+        this.state = state;
+        this.parsedPos = this.chunkStart = from + tree.length;
+        for (let i = 0; i < tree.children.length; i++) {
+            this.chunks.push(tree.children[i]);
+            this.chunkPos.push(tree.positions[i]);
+        }
+        if (context && this.parsedPos < context.viewport.from - 100000 /* MaxDistanceBeforeViewport */) {
+            this.state = this.lang.streamParser.startState(getIndentUnit(context.state));
+            context.skipUntilInView(this.parsedPos, context.viewport.from);
+            this.parsedPos = context.viewport.from;
+        }
+        this.moveRangeIndex();
+    }
+    advance() {
+        let context = ParseContext.get();
+        let parseEnd = this.stoppedAt == null ? this.to : Math.min(this.to, this.stoppedAt);
+        let end = Math.min(parseEnd, this.chunkStart + 2048 /* ChunkSize */);
+        if (context)
+            end = Math.min(end, context.viewport.to);
+        while (this.parsedPos < end)
+            this.parseLine(context);
+        if (this.chunkStart < this.parsedPos)
+            this.finishChunk();
+        if (this.parsedPos >= parseEnd)
+            return this.finish();
+        if (context && this.parsedPos >= context.viewport.to) {
+            context.skipUntilInView(this.parsedPos, parseEnd);
+            return this.finish();
+        }
+        return null;
+    }
+    stopAt(pos) {
+        this.stoppedAt = pos;
+    }
+    lineAfter(pos) {
+        let chunk = this.input.chunk(pos);
+        if (!this.input.lineChunks) {
+            let eol = chunk.indexOf("\n");
+            if (eol > -1)
+                chunk = chunk.slice(0, eol);
+        }
+        else if (chunk == "\n") {
+            chunk = "";
+        }
+        return pos + chunk.length <= this.to ? chunk : chunk.slice(0, this.to - pos);
+    }
+    nextLine() {
+        let from = this.parsedPos, line = this.lineAfter(from), end = from + line.length;
+        for (let index = this.rangeIndex;;) {
+            let rangeEnd = this.ranges[index].to;
+            if (rangeEnd >= end)
+                break;
+            line = line.slice(0, rangeEnd - (end - line.length));
+            index++;
+            if (index == this.ranges.length)
+                break;
+            let rangeStart = this.ranges[index].from;
+            let after = this.lineAfter(rangeStart);
+            line += after;
+            end = rangeStart + after.length;
+        }
+        return { line, end };
+    }
+    skipGapsTo(pos, offset, side) {
+        for (;;) {
+            let end = this.ranges[this.rangeIndex].to, offPos = pos + offset;
+            if (side > 0 ? end > offPos : end >= offPos)
+                break;
+            let start = this.ranges[++this.rangeIndex].from;
+            offset += start - end;
+        }
+        return offset;
+    }
+    moveRangeIndex() {
+        while (this.ranges[this.rangeIndex].to < this.parsedPos)
+            this.rangeIndex++;
+    }
+    emitToken(id, from, to, size, offset) {
+        if (this.ranges.length > 1) {
+            offset = this.skipGapsTo(from, offset, 1);
+            from += offset;
+            let len0 = this.chunk.length;
+            offset = this.skipGapsTo(to, offset, -1);
+            to += offset;
+            size += this.chunk.length - len0;
+        }
+        this.chunk.push(id, from, to, size);
+        return offset;
+    }
+    parseLine(context) {
+        let { line, end } = this.nextLine(), offset = 0, { streamParser } = this.lang;
+        let stream = new StringStream(line, context ? context.state.tabSize : 4, context ? getIndentUnit(context.state) : 2);
+        if (stream.eol()) {
+            streamParser.blankLine(this.state, stream.indentUnit);
+        }
+        else {
+            while (!stream.eol()) {
+                let token = readToken$1(streamParser.token, stream, this.state);
+                if (token)
+                    offset = this.emitToken(this.lang.tokenTable.resolve(token), this.parsedPos + stream.start, this.parsedPos + stream.pos, 4, offset);
+                if (stream.start > 10000 /* MaxLineLength */)
+                    break;
+            }
+        }
+        this.parsedPos = end;
+        this.moveRangeIndex();
+        if (this.parsedPos < this.to)
+            this.parsedPos++;
+    }
+    finishChunk() {
+        let tree = Tree.build({
+            buffer: this.chunk,
+            start: this.chunkStart,
+            length: this.parsedPos - this.chunkStart,
+            nodeSet,
+            topID: 0,
+            maxBufferLength: 2048 /* ChunkSize */,
+            reused: this.chunkReused
+        });
+        tree = new Tree(tree.type, tree.children, tree.positions, tree.length, [[this.lang.stateAfter, this.lang.streamParser.copyState(this.state)]]);
+        this.chunks.push(tree);
+        this.chunkPos.push(this.chunkStart - this.ranges[0].from);
+        this.chunk = [];
+        this.chunkReused = undefined;
+        this.chunkStart = this.parsedPos;
+    }
+    finish() {
+        return new Tree(this.lang.topNode, this.chunks, this.chunkPos, this.parsedPos - this.ranges[0].from).balance();
+    }
+};
+function readToken$1(token, stream, state) {
+    stream.start = stream.pos;
+    for (let i = 0; i < 10; i++) {
+        let result = token(stream, state);
+        if (stream.pos > stream.start)
+            return result;
+    }
+    throw new Error("Stream parser failed to advance stream.");
+}
 const noTokens = /*@__PURE__*/Object.create(null);
 const typeArray = [NodeType.none];
+const nodeSet = /*@__PURE__*/new NodeSet(typeArray);
 const warned = [];
 const defaultTable = /*@__PURE__*/Object.create(null);
 for (let [legacyName, name] of [
@@ -18430,6 +19371,16 @@ for (let [legacyName, name] of [
     ["property", "propertyName"]
 ])
     defaultTable[legacyName] = /*@__PURE__*/createTokenType(noTokens, name);
+class TokenTable {
+    constructor(extra) {
+        this.extra = extra;
+        this.table = Object.assign(Object.create(null), defaultTable);
+    }
+    resolve(tag) {
+        return !tag ? 0 : this.table[tag] || (this.table[tag] = createTokenType(this.extra, tag));
+    }
+}
+const defaultTokenTable = /*@__PURE__*/new TokenTable(noTokens);
 function warnForPart(part, msg) {
     if (warned.indexOf(part) > -1)
         return;
@@ -18466,6 +19417,68 @@ function createTokenType(extra, tagStr) {
     typeArray.push(type);
     return type.id;
 }
+function docID(data) {
+    let type = NodeType.define({ id: typeArray.length, name: "Document", props: [languageDataProp.add(() => data)], top: true });
+    typeArray.push(type);
+    return type;
+}
+
+var _codemirror_language = /*#__PURE__*/Object.freeze({
+   __proto__: null,
+   DocInput: DocInput,
+   HighlightStyle: HighlightStyle,
+   IndentContext: IndentContext,
+   LRLanguage: LRLanguage,
+   Language: Language,
+   LanguageDescription: LanguageDescription,
+   LanguageSupport: LanguageSupport,
+   ParseContext: ParseContext,
+   StreamLanguage: StreamLanguage,
+   StringStream: StringStream,
+   TreeIndentContext: TreeIndentContext,
+   bracketMatching: bracketMatching,
+   bracketMatchingHandle: bracketMatchingHandle,
+   codeFolding: codeFolding,
+   continuedIndent: continuedIndent,
+   defaultHighlightStyle: defaultHighlightStyle,
+   defineLanguageFacet: defineLanguageFacet,
+   delimitedIndent: delimitedIndent,
+   ensureSyntaxTree: ensureSyntaxTree,
+   flatIndent: flatIndent,
+   foldAll: foldAll,
+   foldCode: foldCode,
+   foldEffect: foldEffect,
+   foldGutter: foldGutter,
+   foldInside: foldInside,
+   foldKeymap: foldKeymap,
+   foldNodeProp: foldNodeProp,
+   foldService: foldService,
+   foldState: foldState,
+   foldable: foldable,
+   foldedRanges: foldedRanges,
+   forceParsing: forceParsing,
+   getIndentUnit: getIndentUnit,
+   getIndentation: getIndentation,
+   highlightingFor: highlightingFor,
+   indentNodeProp: indentNodeProp,
+   indentOnInput: indentOnInput,
+   indentRange: indentRange,
+   indentService: indentService,
+   indentString: indentString,
+   indentUnit: indentUnit,
+   language: language,
+   languageDataProp: languageDataProp,
+   matchBrackets: matchBrackets,
+   sublanguageProp: sublanguageProp,
+   syntaxHighlighting: syntaxHighlighting,
+   syntaxParserRunning: syntaxParserRunning,
+   syntaxTree: syntaxTree,
+   syntaxTreeAvailable: syntaxTreeAvailable,
+   toggleFold: toggleFold,
+   unfoldAll: unfoldAll,
+   unfoldCode: unfoldCode,
+   unfoldEffect: unfoldEffect
+});
 
 /**
 Comment or uncomment the current selection. Will use line comments
@@ -18494,12 +19507,28 @@ data](https://codemirror.net/6/docs/ref/#state.EditorState.languageDataAt).
 */
 const toggleLineComment = /*@__PURE__*/command(changeLineComment, 0 /* CommentOption.Toggle */);
 /**
+Comment the current selection using line comments.
+*/
+const lineComment = /*@__PURE__*/command(changeLineComment, 1 /* CommentOption.Comment */);
+/**
+Uncomment the current selection using line comments.
+*/
+const lineUncomment = /*@__PURE__*/command(changeLineComment, 2 /* CommentOption.Uncomment */);
+/**
 Comment or uncomment the current selection using block comments.
 The block comment syntax is taken from the
 [`commentTokens`](https://codemirror.net/6/docs/ref/#commands.CommentTokens) [language
 data](https://codemirror.net/6/docs/ref/#state.EditorState.languageDataAt).
 */
 const toggleBlockComment = /*@__PURE__*/command(changeBlockComment, 0 /* CommentOption.Toggle */);
+/**
+Comment the current selection using block comments.
+*/
+const blockComment = /*@__PURE__*/command(changeBlockComment, 1 /* CommentOption.Comment */);
+/**
+Uncomment the current selection using block comments.
+*/
+const blockUncomment = /*@__PURE__*/command(changeBlockComment, 2 /* CommentOption.Uncomment */);
 /**
 Comment or uncomment the lines around the current selection using
 block comments.
@@ -18724,6 +19753,14 @@ function history(config = {}) {
         })
     ];
 }
+/**
+The state field used to store the history data. Should probably
+only be used when you want to
+[serialize](https://codemirror.net/6/docs/ref/#state.EditorState.toJSON) or
+[deserialize](https://codemirror.net/6/docs/ref/#state.EditorState^fromJSON) state objects in a way
+that preserves history.
+*/
+const historyField = historyField_;
 function cmd(side, selection) {
     return function ({ state, dispatch }) {
         if (!selection && state.readOnly)
@@ -18756,6 +19793,23 @@ const undoSelection = /*@__PURE__*/cmd(0 /* BranchName.Done */, true);
 Redo a change or selection change.
 */
 const redoSelection = /*@__PURE__*/cmd(1 /* BranchName.Undone */, true);
+function depth(side) {
+    return function (state) {
+        let histState = state.field(historyField_, false);
+        if (!histState)
+            return 0;
+        let branch = side == 0 /* BranchName.Done */ ? histState.done : histState.undone;
+        return branch.length - (branch.length && !branch[0].changes ? 1 : 0);
+    };
+}
+/**
+The amount of undoable change events available in a given state.
+*/
+const undoDepth = /*@__PURE__*/depth(0 /* BranchName.Done */);
+/**
+The amount of redoable change events available in a given state.
+*/
+const redoDepth = /*@__PURE__*/depth(1 /* BranchName.Undone */);
 // History events store groups of changes or effects that need to be
 // undone/redone together.
 class HistEvent {
@@ -19012,6 +20066,14 @@ const cursorCharLeft = view => cursorByChar(view, !ltrAtCursor(view));
 Move the selection one character to the right.
 */
 const cursorCharRight = view => cursorByChar(view, ltrAtCursor(view));
+/**
+Move the selection one character forward.
+*/
+const cursorCharForward = view => cursorByChar(view, true);
+/**
+Move the selection one character backward.
+*/
+const cursorCharBackward = view => cursorByChar(view, false);
 function cursorByGroup(view, forward) {
     return moveSel(view, range => range.empty ? view.moveByGroup(range, forward) : rangeEnd(range, forward));
 }
@@ -19024,6 +20086,81 @@ const cursorGroupLeft = view => cursorByGroup(view, !ltrAtCursor(view));
 Move the selection one group to the right.
 */
 const cursorGroupRight = view => cursorByGroup(view, ltrAtCursor(view));
+/**
+Move the selection one group forward.
+*/
+const cursorGroupForward = view => cursorByGroup(view, true);
+/**
+Move the selection one group backward.
+*/
+const cursorGroupBackward = view => cursorByGroup(view, false);
+const segmenter = typeof Intl != "undefined" && Intl.Segmenter ?
+    /*@__PURE__*/new (Intl.Segmenter)(undefined, { granularity: "word" }) : null;
+function moveBySubword(view, range, forward) {
+    let categorize = view.state.charCategorizer(range.from);
+    let cat = CharCategory.Space, pos = range.from, steps = 0;
+    let done = false, sawUpper = false, sawLower = false;
+    let step = (next) => {
+        if (done)
+            return false;
+        pos += forward ? next.length : -next.length;
+        let nextCat = categorize(next), ahead;
+        if (nextCat == CharCategory.Word && next.charCodeAt(0) < 128 && /[\W_]/.test(next))
+            nextCat = -1; // Treat word punctuation specially
+        if (cat == CharCategory.Space)
+            cat = nextCat;
+        if (cat != nextCat)
+            return false;
+        if (cat == CharCategory.Word) {
+            if (next.toLowerCase() == next) {
+                if (!forward && sawUpper)
+                    return false;
+                sawLower = true;
+            }
+            else if (sawLower) {
+                if (forward)
+                    return false;
+                done = true;
+            }
+            else {
+                if (sawUpper && forward && categorize(ahead = view.state.sliceDoc(pos, pos + 1)) == CharCategory.Word &&
+                    ahead.toLowerCase() == ahead)
+                    return false;
+                sawUpper = true;
+            }
+        }
+        steps++;
+        return true;
+    };
+    let end = view.moveByChar(range, forward, start => {
+        step(start);
+        return step;
+    });
+    if (segmenter && cat == CharCategory.Word && end.from == range.from + steps * (forward ? 1 : -1)) {
+        let from = Math.min(range.head, end.head), to = Math.max(range.head, end.head);
+        let skipped = view.state.sliceDoc(from, to);
+        if (skipped.length > 1 && /[\u4E00-\uffff]/.test(skipped)) {
+            let segments = Array.from(segmenter.segment(skipped));
+            if (segments.length > 1) {
+                if (forward)
+                    return EditorSelection.cursor(range.head + segments[1].index, -1);
+                return EditorSelection.cursor(end.head + segments[segments.length - 1].index, 1);
+            }
+        }
+    }
+    return end;
+}
+function cursorBySubword(view, forward) {
+    return moveSel(view, range => range.empty ? moveBySubword(view, range, forward) : rangeEnd(range, forward));
+}
+/**
+Move the selection one group or camel-case subword forward.
+*/
+const cursorSubwordForward = view => cursorBySubword(view, true);
+/**
+Move the selection one group or camel-case subword backward.
+*/
+const cursorSubwordBackward = view => cursorBySubword(view, false);
 function interestingNode(state, node, bracketProp) {
     if (node.type.prop(bracketProp))
         return true;
@@ -19182,6 +20319,11 @@ Move the selection to the bracket matching the one it is currently
 on, if any.
 */
 const cursorMatchingBracket = ({ state, dispatch }) => toMatchingBracket(state, dispatch, false);
+/**
+Extend the selection to the bracket matching the one the selection
+head is currently on, if any.
+*/
+const selectMatchingBracket = ({ state, dispatch }) => toMatchingBracket(state, dispatch, true);
 function extendSel(view, how) {
     let selection = updateSel(view.state.selection, range => {
         let head = how(range);
@@ -19204,6 +20346,14 @@ const selectCharLeft = view => selectByChar(view, !ltrAtCursor(view));
 Move the selection head one character to the right.
 */
 const selectCharRight = view => selectByChar(view, ltrAtCursor(view));
+/**
+Move the selection head one character forward.
+*/
+const selectCharForward = view => selectByChar(view, true);
+/**
+Move the selection head one character backward.
+*/
+const selectCharBackward = view => selectByChar(view, false);
 function selectByGroup(view, forward) {
     return extendSel(view, range => view.moveByGroup(range, forward));
 }
@@ -19216,6 +20366,25 @@ const selectGroupLeft = view => selectByGroup(view, !ltrAtCursor(view));
 Move the selection head one group to the right.
 */
 const selectGroupRight = view => selectByGroup(view, ltrAtCursor(view));
+/**
+Move the selection head one group forward.
+*/
+const selectGroupForward = view => selectByGroup(view, true);
+/**
+Move the selection head one group backward.
+*/
+const selectGroupBackward = view => selectByGroup(view, false);
+function selectBySubword(view, forward) {
+    return extendSel(view, range => moveBySubword(view, range, forward));
+}
+/**
+Move the selection head one group or camel-case subword forward.
+*/
+const selectSubwordForward = view => selectBySubword(view, true);
+/**
+Move the selection head one group or subword backward.
+*/
+const selectSubwordBackward = view => selectBySubword(view, false);
 /**
 Move the selection head over the next syntactic element to the left.
 */
@@ -19467,6 +20636,34 @@ const deleteToLineStart = view => deleteBy(view, pos => {
     return pos > lineStart ? lineStart : Math.max(0, pos - 1);
 });
 /**
+Delete all whitespace directly before a line end from the
+document.
+*/
+const deleteTrailingWhitespace = ({ state, dispatch }) => {
+    if (state.readOnly)
+        return false;
+    let changes = [];
+    for (let pos = 0, prev = "", iter = state.doc.iter();;) {
+        iter.next();
+        if (iter.lineBreak || iter.done) {
+            let trailing = prev.search(/\s+$/);
+            if (trailing > -1)
+                changes.push({ from: pos - (prev.length - trailing), to: pos });
+            if (iter.done)
+                break;
+            prev = "";
+        }
+        else {
+            prev = iter.value;
+        }
+        pos += iter.value.length;
+    }
+    if (!changes.length)
+        return false;
+    dispatch(state.update({ changes, userEvent: "delete" }));
+    return true;
+};
+/**
 Replace each selection range with a line break, leaving the cursor
 on the line before the break.
 */
@@ -19592,6 +20789,13 @@ const deleteLine = view => {
     }));
     let selection = updateSel(state.selection, range => view.moveVertically(range, true)).map(changes);
     view.dispatch({ changes, selection, scrollIntoView: true, userEvent: "delete.line" });
+    return true;
+};
+/**
+Replace the selection with a newline.
+*/
+const insertNewline = ({ state, dispatch }) => {
+    dispatch(state.update(state.replaceSelection(state.lineBreak), { scrollIntoView: true, userEvent: "input" }));
     return true;
 };
 function isBetweenBrackets(state, pos) {
@@ -19723,6 +20927,17 @@ const indentLess = ({ state, dispatch }) => {
             keep++;
         changes.push({ from: line.from + keep, to: line.from + space.length, insert: insert.slice(keep) });
     }), { userEvent: "delete.dedent" }));
+    return true;
+};
+/**
+Insert a tab character at the cursor or, if something is selected,
+use [`indentMore`](https://codemirror.net/6/docs/ref/#commands.indentMore) to indent the entire
+selection.
+*/
+const insertTab = ({ state, dispatch }) => {
+    if (state.selection.ranges.some(r => !r.empty))
+        return indentMore({ state, dispatch });
+    dispatch(state.update(state.replaceSelection("\t"), { scrollIntoView: true, userEvent: "input" }));
     return true;
 };
 /**
@@ -19861,6 +21076,115 @@ const defaultKeymap = /*@__PURE__*/[
     { key: "Mod-/", run: toggleComment },
     { key: "Alt-A", run: toggleBlockComment }
 ].concat(standardKeymap);
+/**
+A binding that binds Tab to [`indentMore`](https://codemirror.net/6/docs/ref/#commands.indentMore) and
+Shift-Tab to [`indentLess`](https://codemirror.net/6/docs/ref/#commands.indentLess).
+Please see the [Tab example](../../examples/tab/) before using
+this.
+*/
+const indentWithTab = { key: "Tab", run: indentMore, shift: indentLess };
+
+var _codemirror_commands = /*#__PURE__*/Object.freeze({
+   __proto__: null,
+   blockComment: blockComment,
+   blockUncomment: blockUncomment,
+   copyLineDown: copyLineDown,
+   copyLineUp: copyLineUp,
+   cursorCharBackward: cursorCharBackward,
+   cursorCharForward: cursorCharForward,
+   cursorCharLeft: cursorCharLeft,
+   cursorCharRight: cursorCharRight,
+   cursorDocEnd: cursorDocEnd,
+   cursorDocStart: cursorDocStart,
+   cursorGroupBackward: cursorGroupBackward,
+   cursorGroupForward: cursorGroupForward,
+   cursorGroupLeft: cursorGroupLeft,
+   cursorGroupRight: cursorGroupRight,
+   cursorLineBoundaryBackward: cursorLineBoundaryBackward,
+   cursorLineBoundaryForward: cursorLineBoundaryForward,
+   cursorLineBoundaryLeft: cursorLineBoundaryLeft,
+   cursorLineBoundaryRight: cursorLineBoundaryRight,
+   cursorLineDown: cursorLineDown,
+   cursorLineEnd: cursorLineEnd,
+   cursorLineStart: cursorLineStart,
+   cursorLineUp: cursorLineUp,
+   cursorMatchingBracket: cursorMatchingBracket,
+   cursorPageDown: cursorPageDown,
+   cursorPageUp: cursorPageUp,
+   cursorSubwordBackward: cursorSubwordBackward,
+   cursorSubwordForward: cursorSubwordForward,
+   cursorSyntaxLeft: cursorSyntaxLeft,
+   cursorSyntaxRight: cursorSyntaxRight,
+   defaultKeymap: defaultKeymap,
+   deleteCharBackward: deleteCharBackward,
+   deleteCharForward: deleteCharForward,
+   deleteGroupBackward: deleteGroupBackward,
+   deleteGroupForward: deleteGroupForward,
+   deleteLine: deleteLine,
+   deleteToLineEnd: deleteToLineEnd,
+   deleteToLineStart: deleteToLineStart,
+   deleteTrailingWhitespace: deleteTrailingWhitespace,
+   emacsStyleKeymap: emacsStyleKeymap,
+   history: history,
+   historyField: historyField,
+   historyKeymap: historyKeymap,
+   indentLess: indentLess,
+   indentMore: indentMore,
+   indentSelection: indentSelection,
+   indentWithTab: indentWithTab,
+   insertBlankLine: insertBlankLine,
+   insertNewline: insertNewline,
+   insertNewlineAndIndent: insertNewlineAndIndent,
+   insertTab: insertTab,
+   invertedEffects: invertedEffects,
+   isolateHistory: isolateHistory,
+   lineComment: lineComment,
+   lineUncomment: lineUncomment,
+   moveLineDown: moveLineDown,
+   moveLineUp: moveLineUp,
+   redo: redo,
+   redoDepth: redoDepth,
+   redoSelection: redoSelection,
+   selectAll: selectAll,
+   selectCharBackward: selectCharBackward,
+   selectCharForward: selectCharForward,
+   selectCharLeft: selectCharLeft,
+   selectCharRight: selectCharRight,
+   selectDocEnd: selectDocEnd,
+   selectDocStart: selectDocStart,
+   selectGroupBackward: selectGroupBackward,
+   selectGroupForward: selectGroupForward,
+   selectGroupLeft: selectGroupLeft,
+   selectGroupRight: selectGroupRight,
+   selectLine: selectLine,
+   selectLineBoundaryBackward: selectLineBoundaryBackward,
+   selectLineBoundaryForward: selectLineBoundaryForward,
+   selectLineBoundaryLeft: selectLineBoundaryLeft,
+   selectLineBoundaryRight: selectLineBoundaryRight,
+   selectLineDown: selectLineDown,
+   selectLineEnd: selectLineEnd,
+   selectLineStart: selectLineStart,
+   selectLineUp: selectLineUp,
+   selectMatchingBracket: selectMatchingBracket,
+   selectPageDown: selectPageDown,
+   selectPageUp: selectPageUp,
+   selectParentSyntax: selectParentSyntax,
+   selectSubwordBackward: selectSubwordBackward,
+   selectSubwordForward: selectSubwordForward,
+   selectSyntaxLeft: selectSyntaxLeft,
+   selectSyntaxRight: selectSyntaxRight,
+   simplifySelection: simplifySelection,
+   splitLine: splitLine,
+   standardKeymap: standardKeymap,
+   toggleBlockComment: toggleBlockComment,
+   toggleBlockCommentByLine: toggleBlockCommentByLine,
+   toggleComment: toggleComment,
+   toggleLineComment: toggleLineComment,
+   transposeChars: transposeChars,
+   undo: undo,
+   undoDepth: undoDepth,
+   undoSelection: undoSelection
+});
 
 function crelt() {
   var elt = arguments[0];
@@ -20452,6 +21776,15 @@ const searchConfigFacet = /*@__PURE__*/Facet.define({
     }
 });
 /**
+Add search state to the editor configuration, and optionally
+configure the search extension.
+([`openSearchPanel`](https://codemirror.net/6/docs/ref/#search.openSearchPanel) will automatically
+enable this if it isn't already on).
+*/
+function search(config) {
+    return config ? [searchConfigFacet.of(config), searchExtensions] : searchExtensions;
+}
+/**
 A search query. Part of the editor's search state.
 */
 class SearchQuery {
@@ -20652,6 +21985,20 @@ const searchState = /*@__PURE__*/StateField.define({
     },
     provide: f => showPanel.from(f, val => val.panel)
 });
+/**
+Get the current search query from an editor state.
+*/
+function getSearchQuery(state) {
+    let curState = state.field(searchState, false);
+    return curState ? curState.query.spec : defaultQuery(state);
+}
+/**
+Query whether the search panel is open in the given editor state.
+*/
+function searchPanelOpen(state) {
+    var _a;
+    return ((_a = state.field(searchState, false)) === null || _a === void 0 ? void 0 : _a.panel) != null;
+}
 class SearchState {
     constructor(query, panel) {
         this.query = query;
@@ -21080,6 +22427,29 @@ const searchExtensions = [
     baseTheme$2
 ];
 
+var _codemirror_ssearch = /*#__PURE__*/Object.freeze({
+   __proto__: null,
+   RegExpCursor: RegExpCursor,
+   SearchCursor: SearchCursor,
+   SearchQuery: SearchQuery,
+   closeSearchPanel: closeSearchPanel,
+   findNext: findNext,
+   findPrevious: findPrevious,
+   getSearchQuery: getSearchQuery,
+   gotoLine: gotoLine,
+   highlightSelectionMatches: highlightSelectionMatches,
+   openSearchPanel: openSearchPanel,
+   replaceAll: replaceAll,
+   replaceNext: replaceNext,
+   search: search,
+   searchKeymap: searchKeymap,
+   searchPanelOpen: searchPanelOpen,
+   selectMatches: selectMatches,
+   selectNextOccurrence: selectNextOccurrence,
+   selectSelectionMatches: selectSelectionMatches,
+   setSearchQuery: setSearchQuery
+});
+
 /**
 An instance of this is passed to completion source functions.
 */
@@ -21178,6 +22548,21 @@ function completeFromList(list) {
     return (context) => {
         let token = context.matchBefore(match);
         return token || context.explicit ? { from: token ? token.from : context.pos, options, validFor } : null;
+    };
+}
+/**
+Wrap the given completion source so that it will only fire when the
+cursor is in a syntax node with one of the given names.
+*/
+function ifIn(nodes, source) {
+    return (context) => {
+        for (let pos = syntaxTree(context.state).resolveInner(context.pos, -1); pos; pos = pos.parent) {
+            if (nodes.indexOf(pos.name) > -1)
+                return source(context);
+            if (pos.type.isTop)
+                break;
+        }
+        return null;
     };
 }
 /**
@@ -22561,6 +23946,22 @@ const nextSnippetField = /*@__PURE__*/moveField(1);
 Move to the previous snippet field, if available.
 */
 const prevSnippetField = /*@__PURE__*/moveField(-1);
+/**
+Check if there is an active snippet with a next field for
+`nextSnippetField` to move to.
+*/
+function hasNextSnippetField(state) {
+    let active = state.field(snippetState, false);
+    return !!(active && active.ranges.some(r => r.field == active.active + 1));
+}
+/**
+Returns true if there is an active snippet and a previous field
+for `prevSnippetField` to move to.
+*/
+function hasPrevSnippetField(state) {
+    let active = state.field(snippetState, false);
+    return !!(active && active.active > 0);
+}
 const defaultSnippetKeymap = [
     { key: "Tab", run: nextSnippetField, shift: prevSnippetField },
     { key: "Escape", run: clearSnippet }
@@ -22599,6 +24000,83 @@ const snippetPointerHandler = /*@__PURE__*/EditorView.domEventHandlers({
         return true;
     }
 });
+
+function wordRE(wordChars) {
+    let escaped = wordChars.replace(/[\\[.+*?(){|^$]/g, "\\$&");
+    try {
+        return new RegExp(`[\\p{Alphabetic}\\p{Number}_${escaped}]+`, "ug");
+    }
+    catch (_a) {
+        return new RegExp(`[\w${escaped}]`, "g");
+    }
+}
+function mapRE(re, f) {
+    return new RegExp(f(re.source), re.unicode ? "u" : "");
+}
+const wordCaches = /*@__PURE__*/Object.create(null);
+function wordCache(wordChars) {
+    return wordCaches[wordChars] || (wordCaches[wordChars] = new WeakMap);
+}
+function storeWords(doc, wordRE, result, seen, ignoreAt) {
+    for (let lines = doc.iterLines(), pos = 0; !lines.next().done;) {
+        let { value } = lines, m;
+        wordRE.lastIndex = 0;
+        while (m = wordRE.exec(value)) {
+            if (!seen[m[0]] && pos + m.index != ignoreAt) {
+                result.push({ type: "text", label: m[0] });
+                seen[m[0]] = true;
+                if (result.length >= 2000 /* MaxList */)
+                    return;
+            }
+        }
+        pos += value.length + 1;
+    }
+}
+function collectWords(doc, cache, wordRE, to, ignoreAt) {
+    let big = doc.length >= 1000 /* MinCacheLen */;
+    let cached = big && cache.get(doc);
+    if (cached)
+        return cached;
+    let result = [], seen = Object.create(null);
+    if (doc.children) {
+        let pos = 0;
+        for (let ch of doc.children) {
+            if (ch.length >= 1000 /* MinCacheLen */) {
+                for (let c of collectWords(ch, cache, wordRE, to - pos, ignoreAt - pos)) {
+                    if (!seen[c.label]) {
+                        seen[c.label] = true;
+                        result.push(c);
+                    }
+                }
+            }
+            else {
+                storeWords(ch, wordRE, result, seen, ignoreAt - pos);
+            }
+            pos += ch.length + 1;
+        }
+    }
+    else {
+        storeWords(doc, wordRE, result, seen, ignoreAt);
+    }
+    if (big && result.length < 2000 /* MaxList */)
+        cache.set(doc, result);
+    return result;
+}
+/**
+A completion source that will scan the document for words (using a
+[character categorizer](https://codemirror.net/6/docs/ref/#state.EditorState.charCategorizer)), and
+return those as completions.
+*/
+const completeAnyWord = context => {
+    let wordChars = context.state.languageDataAt("wordChars", context.pos).join("");
+    let re = wordRE(wordChars);
+    let token = context.matchBefore(mapRE(re, s => s + "$"));
+    if (!token && !context.explicit)
+        return null;
+    let from = token ? token.from : context.pos;
+    let options = collectWords(context.state.doc, wordCache(wordChars), re, 50000 /* Range */, from);
+    return { from, options, validFor: mapRE(re, s => "^" + s) };
+};
 
 const defaults = {
     brackets: ["(", "[", "{", "'", '"'],
@@ -22880,6 +24358,89 @@ const completionKeymap = [
     { key: "Enter", run: acceptCompletion }
 ];
 const completionKeymapExt = /*@__PURE__*/Prec.highest(/*@__PURE__*/keymap.computeN([completionConfig], state => state.facet(completionConfig).defaultKeymap ? [completionKeymap] : []));
+/**
+Get the current completion status. When completions are available,
+this will return `"active"`. When completions are pending (in the
+process of being queried), this returns `"pending"`. Otherwise, it
+returns `null`.
+*/
+function completionStatus(state) {
+    let cState = state.field(completionState, false);
+    return cState && cState.active.some(a => a.state == 1 /* Pending */) ? "pending"
+        : cState && cState.active.some(a => a.state != 0 /* Inactive */) ? "active" : null;
+}
+const completionArrayCache = /*@__PURE__*/new WeakMap;
+/**
+Returns the available completions as an array.
+*/
+function currentCompletions(state) {
+    var _a;
+    let open = (_a = state.field(completionState, false)) === null || _a === void 0 ? void 0 : _a.open;
+    if (!open || open.disabled)
+        return [];
+    let completions = completionArrayCache.get(open.options);
+    if (!completions)
+        completionArrayCache.set(open.options, completions = open.options.map(o => o.completion));
+    return completions;
+}
+/**
+Return the currently selected completion, if any.
+*/
+function selectedCompletion(state) {
+    var _a;
+    let open = (_a = state.field(completionState, false)) === null || _a === void 0 ? void 0 : _a.open;
+    return open && !open.disabled && open.selected >= 0 ? open.options[open.selected].completion : null;
+}
+/**
+Returns the currently selected position in the active completion
+list, or null if no completions are active.
+*/
+function selectedCompletionIndex(state) {
+    var _a;
+    let open = (_a = state.field(completionState, false)) === null || _a === void 0 ? void 0 : _a.open;
+    return open && !open.disabled && open.selected >= 0 ? open.selected : null;
+}
+/**
+Create an effect that can be attached to a transaction to change
+the currently selected completion.
+*/
+function setSelectedCompletion(index) {
+    return setSelectedEffect.of(index);
+}
+
+var _codemirror_autocomplete = /*#__PURE__*/Object.freeze({
+   __proto__: null,
+   CompletionContext: CompletionContext,
+   acceptCompletion: acceptCompletion,
+   autocompletion: autocompletion,
+   clearSnippet: clearSnippet,
+   closeBrackets: closeBrackets,
+   closeBracketsKeymap: closeBracketsKeymap,
+   closeCompletion: closeCompletion,
+   completeAnyWord: completeAnyWord,
+   completeFromList: completeFromList,
+   completionKeymap: completionKeymap,
+   completionStatus: completionStatus,
+   currentCompletions: currentCompletions,
+   deleteBracketPair: deleteBracketPair,
+   hasNextSnippetField: hasNextSnippetField,
+   hasPrevSnippetField: hasPrevSnippetField,
+   ifIn: ifIn,
+   ifNotIn: ifNotIn,
+   insertBracket: insertBracket,
+   insertCompletionText: insertCompletionText,
+   moveCompletionSelection: moveCompletionSelection,
+   nextSnippetField: nextSnippetField,
+   pickedCompletion: pickedCompletion,
+   prevSnippetField: prevSnippetField,
+   selectedCompletion: selectedCompletion,
+   selectedCompletionIndex: selectedCompletionIndex,
+   setSelectedCompletion: setSelectedCompletion,
+   snippet: snippet,
+   snippetCompletion: snippetCompletion,
+   snippetKeymap: snippetKeymap,
+   startCompletion: startCompletion
+});
 
 class SelectedDiagnostic {
     constructor(from, to, diagnostic) {
@@ -22933,6 +24494,16 @@ function maybeEnableLint(state, effects) {
     return state.field(lintState, false) ? effects : effects.concat(StateEffect.appendConfig.of(lintExtensions));
 }
 /**
+Returns a transaction spec which updates the current set of
+diagnostics, and enables the lint extension if if wasn't already
+active.
+*/
+function setDiagnostics(state, diagnostics) {
+    return {
+        effects: maybeEnableLint(state, [setDiagnosticsEffect.of(diagnostics)])
+    };
+}
+/**
 The state effect that updates the set of active diagnostics. Can
 be useful when writing an extension that needs to track these.
 */
@@ -22968,6 +24539,13 @@ const lintState = /*@__PURE__*/StateField.define({
     provide: f => [showPanel.from(f, val => val.panel),
         EditorView.decorations.from(f, s => s.diagnostics)]
 });
+/**
+Returns the number of active lint diagnostics in the given state.
+*/
+function diagnosticCount(state) {
+    let lint = state.field(lintState, false);
+    return lint ? lint.diagnostics.size : 0;
+}
 const activeMark = /*@__PURE__*/Decoration.mark({ class: "cm-lintRange cm-lintRange-active" });
 function lintTooltip(view, pos, side) {
     let { diagnostics } = view.state.field(lintState);
@@ -23036,6 +24614,30 @@ const nextDiagnostic = (view) => {
     return true;
 };
 /**
+Move the selection to the previous diagnostic.
+*/
+const previousDiagnostic = (view) => {
+    let { state } = view, field = state.field(lintState, false);
+    if (!field)
+        return false;
+    let sel = state.selection.main;
+    let prevFrom, prevTo, lastFrom, lastTo;
+    field.diagnostics.between(0, state.doc.length, (from, to) => {
+        if (to < sel.to && (prevFrom == null || prevFrom < from)) {
+            prevFrom = from;
+            prevTo = to;
+        }
+        if (lastFrom == null || from > lastFrom) {
+            lastFrom = from;
+            lastTo = to;
+        }
+    });
+    if (lastFrom == null || prevFrom == null && lastFrom == sel.from)
+        return false;
+    view.dispatch({ selection: { anchor: prevFrom !== null && prevFrom !== void 0 ? prevFrom : lastFrom, head: prevTo !== null && prevTo !== void 0 ? prevTo : lastTo }, scrollIntoView: true });
+    return true;
+};
+/**
 A set of default key bindings for the lint functionality.
 
 - Ctrl-Shift-m (Cmd-Shift-m on macOS): [`openLintPanel`](https://codemirror.net/6/docs/ref/#lint.openLintPanel)
@@ -23045,6 +24647,52 @@ const lintKeymap = [
     { key: "Mod-Shift-m", run: openLintPanel, preventDefault: true },
     { key: "F8", run: nextDiagnostic }
 ];
+const lintPlugin = /*@__PURE__*/ViewPlugin.fromClass(class {
+    constructor(view) {
+        this.view = view;
+        this.timeout = -1;
+        this.set = true;
+        let { delay } = view.state.facet(lintConfig);
+        this.lintTime = Date.now() + delay;
+        this.run = this.run.bind(this);
+        this.timeout = setTimeout(this.run, delay);
+    }
+    run() {
+        let now = Date.now();
+        if (now < this.lintTime - 10) {
+            this.timeout = setTimeout(this.run, this.lintTime - now);
+        }
+        else {
+            this.set = false;
+            let { state } = this.view, { sources } = state.facet(lintConfig);
+            Promise.all(sources.map(source => Promise.resolve(source(this.view)))).then(annotations => {
+                let all = annotations.reduce((a, b) => a.concat(b));
+                if (this.view.state.doc == state.doc)
+                    this.view.dispatch(setDiagnostics(this.view.state, all));
+            }, error => { logException(this.view.state, error); });
+        }
+    }
+    update(update) {
+        let config = update.state.facet(lintConfig);
+        if (update.docChanged || config != update.startState.facet(lintConfig) ||
+            config.needsRefresh && config.needsRefresh(update)) {
+            this.lintTime = Date.now() + config.delay;
+            if (!this.set) {
+                this.set = true;
+                this.timeout = setTimeout(this.run, config.delay);
+            }
+        }
+    }
+    force() {
+        if (this.set) {
+            this.lintTime = Date.now();
+            this.run();
+        }
+    }
+    destroy() {
+        clearTimeout(this.timeout);
+    }
+});
 const lintConfig = /*@__PURE__*/Facet.define({
     combine(input) {
         return Object.assign({ sources: input.map(i => i.source) }, combineConfig(input.map(i => i.config), {
@@ -23057,6 +24705,27 @@ const lintConfig = /*@__PURE__*/Facet.define({
         }));
     }
 });
+/**
+Given a diagnostic source, this function returns an extension that
+enables linting with that source. It will be called whenever the
+editor is idle (after its content changed).
+*/
+function linter(source, config = {}) {
+    return [
+        lintConfig.of({ source, config }),
+        lintPlugin,
+        lintExtensions
+    ];
+}
+/**
+Forces any linters [configured](https://codemirror.net/6/docs/ref/#lint.linter) to run when the
+editor is idle to run right away.
+*/
+function forceLinting(view) {
+    let plugin = view.plugin(lintPlugin);
+    if (plugin)
+        plugin.force();
+}
 function assignKeys(actions) {
     let assigned = [];
     if (actions)
@@ -23381,6 +25050,138 @@ const baseTheme = /*@__PURE__*/EditorView.baseTheme({
         }
     }
 });
+function severityWeight(sev) {
+    return sev == "error" ? 4 : sev == "warning" ? 3 : sev == "info" ? 2 : 1;
+}
+class LintGutterMarker extends GutterMarker {
+    constructor(diagnostics) {
+        super();
+        this.diagnostics = diagnostics;
+        this.severity = diagnostics.reduce((max, d) => severityWeight(max) < severityWeight(d.severity) ? d.severity : max, "hint");
+    }
+    toDOM(view) {
+        let elt = document.createElement("div");
+        elt.className = "cm-lint-marker cm-lint-marker-" + this.severity;
+        let diagnostics = this.diagnostics;
+        let diagnosticsFilter = view.state.facet(lintGutterConfig).tooltipFilter;
+        if (diagnosticsFilter)
+            diagnostics = diagnosticsFilter(diagnostics);
+        if (diagnostics.length)
+            elt.onmouseover = () => gutterMarkerMouseOver(view, elt, diagnostics);
+        return elt;
+    }
+}
+function trackHoverOn(view, marker) {
+    let mousemove = (event) => {
+        let rect = marker.getBoundingClientRect();
+        if (event.clientX > rect.left - 10 /* Hover.Margin */ && event.clientX < rect.right + 10 /* Hover.Margin */ &&
+            event.clientY > rect.top - 10 /* Hover.Margin */ && event.clientY < rect.bottom + 10 /* Hover.Margin */)
+            return;
+        for (let target = event.target; target; target = target.parentNode) {
+            if (target.nodeType == 1 && target.classList.contains("cm-tooltip-lint"))
+                return;
+        }
+        window.removeEventListener("mousemove", mousemove);
+        if (view.state.field(lintGutterTooltip))
+            view.dispatch({ effects: setLintGutterTooltip.of(null) });
+    };
+    window.addEventListener("mousemove", mousemove);
+}
+function gutterMarkerMouseOver(view, marker, diagnostics) {
+    function hovered() {
+        let line = view.elementAtHeight(marker.getBoundingClientRect().top + 5 - view.documentTop);
+        const linePos = view.coordsAtPos(line.from);
+        if (linePos) {
+            view.dispatch({ effects: setLintGutterTooltip.of({
+                    pos: line.from,
+                    above: false,
+                    create() {
+                        return {
+                            dom: diagnosticsTooltip(view, diagnostics),
+                            getCoords: () => marker.getBoundingClientRect()
+                        };
+                    }
+                }) });
+        }
+        marker.onmouseout = marker.onmousemove = null;
+        trackHoverOn(view, marker);
+    }
+    let { hoverTime } = view.state.facet(lintGutterConfig);
+    let hoverTimeout = setTimeout(hovered, hoverTime);
+    marker.onmouseout = () => {
+        clearTimeout(hoverTimeout);
+        marker.onmouseout = marker.onmousemove = null;
+    };
+    marker.onmousemove = () => {
+        clearTimeout(hoverTimeout);
+        hoverTimeout = setTimeout(hovered, hoverTime);
+    };
+}
+function markersForDiagnostics(doc, diagnostics) {
+    let byLine = Object.create(null);
+    for (let diagnostic of diagnostics) {
+        let line = doc.lineAt(diagnostic.from);
+        (byLine[line.from] || (byLine[line.from] = [])).push(diagnostic);
+    }
+    let markers = [];
+    for (let line in byLine) {
+        markers.push(new LintGutterMarker(byLine[line]).range(+line));
+    }
+    return RangeSet.of(markers, true);
+}
+const lintGutterExtension = /*@__PURE__*/gutter({
+    class: "cm-gutter-lint",
+    markers: view => view.state.field(lintGutterMarkers),
+});
+const lintGutterMarkers = /*@__PURE__*/StateField.define({
+    create() {
+        return RangeSet.empty;
+    },
+    update(markers, tr) {
+        markers = markers.map(tr.changes);
+        let diagnosticFilter = tr.state.facet(lintGutterConfig).markerFilter;
+        for (let effect of tr.effects) {
+            if (effect.is(setDiagnosticsEffect)) {
+                let diagnostics = effect.value;
+                if (diagnosticFilter)
+                    diagnostics = diagnosticFilter(diagnostics || []);
+                markers = markersForDiagnostics(tr.state.doc, diagnostics.slice(0));
+            }
+        }
+        return markers;
+    }
+});
+const setLintGutterTooltip = /*@__PURE__*/StateEffect.define();
+const lintGutterTooltip = /*@__PURE__*/StateField.define({
+    create() { return null; },
+    update(tooltip, tr) {
+        if (tooltip && tr.docChanged)
+            tooltip = hideTooltip(tr, tooltip) ? null : Object.assign(Object.assign({}, tooltip), { pos: tr.changes.mapPos(tooltip.pos) });
+        return tr.effects.reduce((t, e) => e.is(setLintGutterTooltip) ? e.value : t, tooltip);
+    },
+    provide: field => showTooltip.from(field)
+});
+const lintGutterTheme = /*@__PURE__*/EditorView.baseTheme({
+    ".cm-gutter-lint": {
+        width: "1.4em",
+        "& .cm-gutterElement": {
+            padding: ".2em"
+        }
+    },
+    ".cm-lint-marker": {
+        width: "1em",
+        height: "1em"
+    },
+    ".cm-lint-marker-info": {
+        content: /*@__PURE__*/svg(`<path fill="#aaf" stroke="#77e" stroke-width="6" stroke-linejoin="round" d="M5 5L35 5L35 35L5 35Z"/>`)
+    },
+    ".cm-lint-marker-warning": {
+        content: /*@__PURE__*/svg(`<path fill="#fe8" stroke="#fd7" stroke-width="6" stroke-linejoin="round" d="M20 6L37 35L3 35Z"/>`),
+    },
+    ".cm-lint-marker-error": {
+        content: /*@__PURE__*/svg(`<circle cx="20" cy="20" r="15" fill="#f87" stroke="#f43" stroke-width="6"/>`)
+    },
+});
 const lintExtensions = [
     lintState,
     /*@__PURE__*/EditorView.decorations.compute([lintState], state => {
@@ -23392,6 +25193,52 @@ const lintExtensions = [
     /*@__PURE__*/hoverTooltip(lintTooltip, { hideOn: hideTooltip }),
     baseTheme
 ];
+const lintGutterConfig = /*@__PURE__*/Facet.define({
+    combine(configs) {
+        return combineConfig(configs, {
+            hoverTime: 300 /* Hover.Time */,
+            markerFilter: null,
+            tooltipFilter: null
+        });
+    }
+});
+/**
+Returns an extension that installs a gutter showing markers for
+each line that has diagnostics, which can be hovered over to see
+the diagnostics.
+*/
+function lintGutter(config = {}) {
+    return [lintGutterConfig.of(config), lintGutterMarkers, lintGutterExtension, lintGutterTheme, lintGutterTooltip];
+}
+/**
+Iterate over the marked diagnostics for the given editor state,
+calling `f` for each of them. Note that, if the document changed
+since the diagnostics were created, the `Diagnostic` object will
+hold the original outdated position, whereas the `to` and `from`
+arguments hold the diagnostic's current position.
+*/
+function forEachDiagnostic(state, f) {
+    let lState = state.field(lintState, false);
+    if (lState && lState.diagnostics.size)
+        for (let iter = RangeSet.iter([lState.diagnostics]); iter.value; iter.next())
+            f(iter.value.spec.diagnostic, iter.from, iter.to);
+}
+
+var _codemirror_lint = /*#__PURE__*/Object.freeze({
+   __proto__: null,
+   closeLintPanel: closeLintPanel,
+   diagnosticCount: diagnosticCount,
+   forEachDiagnostic: forEachDiagnostic,
+   forceLinting: forceLinting,
+   lintGutter: lintGutter,
+   lintKeymap: lintKeymap,
+   linter: linter,
+   nextDiagnostic: nextDiagnostic,
+   openLintPanel: openLintPanel,
+   previousDiagnostic: previousDiagnostic,
+   setDiagnostics: setDiagnostics,
+   setDiagnosticsEffect: setDiagnosticsEffect
+});
 
 // (The superfluous function calls around the list of extensions work
 // around current limitations in tree-shaking software.)
@@ -26130,8 +27977,15 @@ var _codemirror_themeOneDark = /*#__PURE__*/Object.freeze({
 const libs = {
     "codemirror": codemirror,
     "@codemirror": {
-        "lang-javascript": _codemirror_langJavascript,
-        "theme-one-dark": _codemirror_themeOneDark
+        "autocomplete": _codemirror_autocomplete,
+        "commands": _codemirror_commands,
+        'lang-javascript': _codemirror_langJavascript,
+        "language": _codemirror_language,
+        "lint": _codemirror_lint,
+        "search": _codemirror_ssearch,
+        "state": _codemirror_state,
+        'theme-one-dark': _codemirror_themeOneDark,
+        "view": _codemirror_view,
     }
 };
 
