@@ -1,11 +1,14 @@
 import VXsToolsPlugin from "VXsToolsPlugin";
 import { TextFileView, View, WorkspaceLeaf } from "obsidian";
 
-import { 
+import libs, { 
     EditorView, basicSetup, 
     javascript, 
-    oneDark 
+    oneDark,
 } from "vendor";
+
+let { EditorState } = libs["@codemirror"].state;
+let { search } = libs["@codemirror"].search;
 
 export const VIEW_TYPE_SOURCECODE = "sourcecode";
 
@@ -25,7 +28,8 @@ export default class VXsSourceCodeView extends TextFileView {
             extensions: [
                 basicSetup,
                 javascript(),
-                oneDark
+                oneDark, 
+                search()
             ],
             parent: this.editorEl
         });
@@ -35,37 +39,34 @@ export default class VXsSourceCodeView extends TextFileView {
         this.editor.dom.style.height = "100%";
     }
 
+    /** @override */
     onload(): void {
         super.onload();
 
         this.newEditor();
     }
-
+    /** @override */
     getViewData(): string {
-        return this.data;//this.editor.state.doc.text
+        return this.editor.state.doc.toString()
     }
-
+    /** @override */
     setViewData(data: string, clear: boolean): void {
-        let spec: any = {
-            changes: {
-                from: 0,
-                insert: data
-            }
-        };
-        let tran = this.editor.state.update(spec);
+        const state = this.editor.state;
+        const changes = {changes: {from: 0, to: state.doc.length, insert: data}};
+        const tran = state.update(changes);
         this.editor.update([tran]);
     }
-
+    /** @override */
     clear(): void {
         this.editor.destroy();
 
         this.newEditor();
     }
-
+    /** @override */
     getViewType(): string {
         return VIEW_TYPE_SOURCECODE;
     }
-
+    /** @override */
     async onClose(): Promise<void> {
         return await super.onClose();
     }
