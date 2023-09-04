@@ -22,9 +22,12 @@ export default class VXsSourceCodeView extends TextFileView {
         this.plugin = plugin;
     }
 
-    newEditor(): void {
-        this.editorEl = this.contentEl.createDiv("markdown-source-view mod-cm5");
+    newEditor(data: string): void {
+        if (this.editor) this.editor.destroy();
+
+        this.editorEl = this.editorEl || this.contentEl.createDiv("markdown-source-view mod-cm5");
         this.editor = new EditorView({
+            doc: data,
             extensions: [
                 basicSetup,
                 javascript(),
@@ -42,8 +45,7 @@ export default class VXsSourceCodeView extends TextFileView {
     /** @override */
     onload(): void {
         super.onload();
-
-        this.newEditor();
+        this.newEditor("");
     }
     /** @override */
     getViewData(): string {
@@ -51,6 +53,9 @@ export default class VXsSourceCodeView extends TextFileView {
     }
     /** @override */
     setViewData(data: string, clear: boolean): void {
+        if (clear) 
+            return this.newEditor(data);
+
         const state = this.editor.state;
         const changes = {changes: {from: 0, to: state.doc.length, insert: data}};
         const tran = state.update(changes);
@@ -59,8 +64,7 @@ export default class VXsSourceCodeView extends TextFileView {
     /** @override */
     clear(): void {
         this.editor.destroy();
-
-        this.newEditor();
+        this.newEditor("");
     }
     /** @override */
     getViewType(): string {
