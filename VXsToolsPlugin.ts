@@ -6,6 +6,7 @@ import VXsToolsPluginLocale from 'VXsToolsPluginLocale';
 import VXsToolsPluginSettingTab from 'VXsToolsPluginSettingTab';
 import VXsTemplatePlugin from 'VXsTemplatePlugin';
 import VXsSourceCodeView, { VIEW_TYPE_SOURCECODE } from 'VXsSourceCodeView';
+import VXsFictionBook2View, { VIEW_TYPE_FICTIONBOOK2 } from 'VXsFictionBook2Viewer';
 
 export default class VXsToolsPlugin extends Plugin {
 	settings: VXsToolsPluginSettings;
@@ -43,6 +44,9 @@ export default class VXsToolsPlugin extends Plugin {
 
 			this.registerView(VIEW_TYPE_SOURCECODE, s => new VXsSourceCodeView(s, this));
 			this.registerExtensions(["js"], VIEW_TYPE_SOURCECODE);
+
+			this.registerView(VIEW_TYPE_FICTIONBOOK2, s => new VXsFictionBook2View(s, this));
+			this.registerExtensions(["fb2"], VIEW_TYPE_FICTIONBOOK2);
 		}
 		catch (e) {
 			new Notice(`${e}: ${(e as Error).stack}`);
