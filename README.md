@@ -5,9 +5,9 @@ Another plugin with small diffrent utilities for [Obsidian](https://obsidian.md)
 # Plans:
 ## in work:
 - [ ] **template sub-plugin**:
-  - [ ] bacward compatibility with core template plugin (almost done)
+  - [x] bacward compatibility with core template plugin (almost done)
   - [x] parametrised macro
-  - [ ] custom macroses in special folder
+  - [x] custom macroses in special folder
   - [ ] custom macroses defined in template
   - [ ] pass macro as argument for macro
 - [ ] unity loader
