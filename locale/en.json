@@ -5,5 +5,7 @@
     "instructionNavigate": "to navigate",
     "instructionInsert": "to insert template",
     "instructionDismiss": "to dissmiss",
-    "promptTypeTemplate": "Type name of a template..."
+    "promptTypeTemplate": "Type name of a template...",
+    "templateFolderSettingCaption": "Template folder location",
+    "templateFolderSettingDescription": "Files in this folder will be available as templates."
 }

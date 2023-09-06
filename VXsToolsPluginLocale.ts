@@ -37,6 +37,10 @@ export function getLanguage(): LanguagesEnum {
 }
 
 export default class VXsToolsPluginLocale {
+
+
+
+    
     protected app: App;
     protected templates: { [key: string]: string };
 
@@ -63,5 +67,9 @@ export default class VXsToolsPluginLocale {
     instructionInsert() { return this.fromat("instructionInsert"); }
     instructionDismiss() { return this.fromat("instructionDismiss"); }
     promptTypeTemplate() { return this.fromat("promptTypeTemplate"); }
+
+	templateFolderSettingCaption(){ return this.fromat("templateFolderSettingCaption"); }
+	templateFolderSettingDescription(){ return this.fromat("templateFolderSettingDescription"); }
+
 }
 

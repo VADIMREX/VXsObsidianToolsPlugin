@@ -5,5 +5,8 @@
     "instructionNavigate": "выбор среди списка",
     "instructionInsert": "вставка шаблона",
     "instructionDismiss": "отмена",
-    "promptTypeTemplate": "Начните вводить наименование шаблона..."
+    "promptTypeTemplate": "Начните вводить наименование шаблона...",
+
+    "templateFolderSettingCaption": "Расположение папки с шаблонами",
+    "templateFolderSettingDescription": "Файлы из этой папки можно будет использовать как шаблоны"
 }
