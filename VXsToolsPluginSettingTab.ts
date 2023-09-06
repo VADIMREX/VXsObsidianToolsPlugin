@@ -1,12 +1,15 @@
 import { PluginSettingTab, App, Setting } from "obsidian";
 import VXsToolsPlugin from "VXsToolsPlugin";
+import VXsToolsPluginLocale from "VXsToolsPluginLocale";
 
 export default class VXsToolsPluginSettingTab extends PluginSettingTab {
 	plugin: VXsToolsPlugin;
+	locale: VXsToolsPluginLocale;
 
-	constructor(app: App, plugin: VXsToolsPlugin) {
+	constructor(app: App, plugin: VXsToolsPlugin, locale: VXsToolsPluginLocale) {
 		super(app, plugin);
 		this.plugin = plugin;
+		this.locale = locale;
 	}
 
 	display(): void {
@@ -15,8 +18,8 @@ export default class VXsToolsPluginSettingTab extends PluginSettingTab {
 		containerEl.empty();
 
 		new Setting(containerEl)
-			.setName('Template folder location')
-			.setDesc('Files in this folder will be available as templates.')
+			.setName(this.locale.templateFolderSettingCaption())
+			.setDesc(this.locale.templateFolderSettingDescription())
 			.addText(text => text
 				.setPlaceholder('')
 				.setValue(this.plugin.settings.templateFolder)
@@ -26,10 +29,10 @@ export default class VXsToolsPluginSettingTab extends PluginSettingTab {
 				}))
 			.addButton(btn => btn
 				//.setDisabled(null == getCoreTemplatePlugin(this.app))
-				.setButtonText("Sync from core template plugin")
+				.setButtonText(this.locale.templateFolderSettingSyncCaption())
 				.onClick(async (evt) => {
 					this.plugin.templatePlugin.syncSettingCoreTemplatePlugin();
 					await this.plugin.saveSettings();
-				}))
+				}));
 	}
 }
