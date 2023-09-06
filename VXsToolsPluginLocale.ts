@@ -71,6 +71,7 @@ export default class VXsToolsPluginLocale {
 	templateFolderSettingCaption(){ return this.fromat("templateFolderSettingCaption"); }
 	templateFolderSettingDescription(){ return this.fromat("templateFolderSettingDescription"); }
     templateFolderSettingSyncCaption(){ return this.fromat("templateFolderSettingSyncCaption"); }
-
+    macroFolderSettingCaption(){ return this.fromat("macroFolderSettingCaption"); }
+    macroFolderSettingDescription(){ return this.fromat("macroFolderSettingDescription"); }
 }
 

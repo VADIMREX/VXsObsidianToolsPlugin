@@ -34,5 +34,16 @@ export default class VXsToolsPluginSettingTab extends PluginSettingTab {
 					this.plugin.templatePlugin.syncSettingCoreTemplatePlugin();
 					await this.plugin.saveSettings();
 				}));
+
+		new Setting(containerEl)
+				.setName(this.locale.macroFolderSettingCaption())
+				.setDesc(this.locale.macroFolderSettingDescription())
+				.addText(text => text
+					.setPlaceholder('')
+					.setValue(this.plugin.settings.macroFolder)
+					.onChange(async (value) => {
+						this.plugin.settings.macroFolder = value;
+						await this.plugin.saveSettings();
+					}));
 	}
 }

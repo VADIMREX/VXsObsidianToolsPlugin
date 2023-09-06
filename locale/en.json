@@ -9,5 +9,7 @@
 
     "templateFolderSettingCaption": "Template folder location",
     "templateFolderSettingDescription": "Files in this folder will be available as templates.",
-    "templateFolderSettingSyncCaption":  "Sync from core template plugin"
+    "templateFolderSettingSyncCaption":  "Sync from core template plugin",
+    "macroFolderSettingCaption": "Custom macros folder location",
+    "macroFolderSettingDescription": "Files in this folder will be treated as custom macros for templates."
 }

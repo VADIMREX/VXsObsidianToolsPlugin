@@ -40,7 +40,7 @@ export default class VXsToolsPlugin extends Plugin {
 				}
 			});
 
-			this.addSettingTab(new VXsToolsPluginSettingTab(this.app, this));
+			this.addSettingTab(new VXsToolsPluginSettingTab(this.app, this, this.locale));
 
 			this.registerView(VIEW_TYPE_SOURCECODE, s => new VXsSourceCodeView(s, this));
 			this.registerExtensions(["js"], VIEW_TYPE_SOURCECODE);
