@@ -55,7 +55,6 @@ export default class VXsFictionBook2View extends FileView {
 
             }
         };
-
         if (_description) {
             _description.childNodes.forEach((node:HTMLElement)=>{
                 switch(node.tagName) {
