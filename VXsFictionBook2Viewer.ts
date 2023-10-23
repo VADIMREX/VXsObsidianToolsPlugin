@@ -56,11 +56,11 @@ export default class VXsFictionBook2View extends FileView {
             }
         };
         if (_description) {
-            _description.childNodes.forEach((node:HTMLElement)=>{
-                switch(node.tagName) {
+            _description.childNodes.forEach((node: HTMLElement) => {
+                switch (node.tagName) {
                     case "title-info":
-                        node.childNodes.forEach((node:HTMLElement)=>{
-                            switch(node.tagName) {
+                        node.childNodes.forEach((node: HTMLElement) => {
+                            switch (node.tagName) {
                                 case "genre":
                                     description.titleInfo.genre.push(node.innerHTML);
                                     break;
@@ -71,8 +71,8 @@ export default class VXsFictionBook2View extends FileView {
                                         lastName?: string,
                                         homePage?: string
                                     } = {};
-                                    node.childNodes.forEach((node:HTMLElement)=>{
-                                        switch(node.tagName) {
+                                    node.childNodes.forEach((node: HTMLElement) => {
+                                        switch (node.tagName) {
                                             case "first-name":
                                                 author.firstName = node.innerHTML;
                                                 break;
@@ -117,12 +117,12 @@ export default class VXsFictionBook2View extends FileView {
                         });
                         break;
                     case "document-info":
-                        node.childNodes.forEach((node:HTMLElement)=>{
+                        node.childNodes.forEach((node: HTMLElement) => {
 
                         });
                         break;
                     case "publish-info":
-                        node.childNodes.forEach((node:HTMLElement)=>{
+                        node.childNodes.forEach((node: HTMLElement) => {
 
                         });
                         break;
@@ -136,26 +136,132 @@ export default class VXsFictionBook2View extends FileView {
         let body = bodies[0];
         let footnotes = null;
         if (bodies.length > 1) {
-
+            footnotes = bodies[1];
         }
-        let viewDoc = this.parseBody(body);
+        let binaries = root.getElementsByTagName("binary");
+        let blobList = {} as { [key: string]: Promise<Blob> };
+        for (let i = 0; i < binaries.length; i++) {
+            binaries[i].innerHTML;
+            blobList[binaries[i].id] = fetch(`data:${binaries[i].getAttribute("content-type")};base64,${binaries[i].innerHTML}`).then(res => res.blob())
+        }
+        this.contentEl.empty();
+        let viewRoot = this.contentEl.createDiv("fiction-book");
+        let viewDoc = await this.parseBody(body, blobList);
+        viewRoot.append(viewDoc);
     }
 
-    async parseBody(node: ChildNode) {
+    async parseBody(node: ChildNode, blobList: { [key: string]: Promise<Blob> }) {
         if (1 != node.nodeType) {
             return node;
         }
         let result: HTMLElement;
-        switch((node as HTMLElement).tagName) {
+        switch ((node as HTMLElement).tagName) {
             case "body":
-                result = this.contentEl.createDiv("fiction-book");
-                break;
-            default: 
                 result = document.createElement("div");
+                result.addClass("fb2-body");
+                break;
+            case "title":
+                result = document.createElement("h2");
+                result.addClass("fb2-title");
+                break;
+            case "subtitle":
+                result = document.createElement("h3");
+                result.addClass("fb2-subtitle");
+                break;
+            case "p":
+                result = document.createElement("p");
+                result.addClass("fb2-p");
+                break;
+            case "emphasis": // курсив
+                result = document.createElement("i");
+                result.addClass("fb2-emphasis");
+                break;
+            case "section":
+                result = document.createElement("div");
+                result.addClass("fb2-section");
+                break;
+            case "epigraph": 
+                result = document.createElement("blockquote");
+                result.addClass("fb2-epigraph");
+                break;
+            case "text-author":
+                result = document.createElement("span");
+                result.addClass("fb2-text-author");
+                break;
+            case "a":
+                result = document.createElement("a");
+                result.addClass("fb2-a");
+                break;
+            case "empty-line":
+                result = document.createElement("br");
+                result.addClass("fb2-empty-line");
+                break;
+            case "image":
+                result = document.createElement("img");
+                result.addClass("fb2-image");
+                let href = (node as any).getAttributeNS("http://www.w3.org/1999/xlink", "href") as string;
+                if (!href) {
+                    href = (node as any).getAttribute("l:href") as string;
+                }
+                if (!href) break;
+                if (!href.length) break;
+                if ('#' === href[0]) href = href.substring(1);
+                if (!blobList[href]) break;
+                let blob = await blobList[href];
+                (result as HTMLImageElement).src = URL.createObjectURL(blob);
+                break;
+            case "strong": // жирный
+                result = document.createElement("b");
+                result.addClass("fb2-strong");
+                break;
+            case "sub":
+                result = document.createElement("sub");
+                result.addClass("fb2-sub");
+                break;
+            case "sup":
+                result = document.createElement("sup");
+                result.addClass("fb2-sup");
+                break;
+            case "table":
+                result = document.createElement("table");
+                result.addClass("fb2-table");
+                break;
+            case "tr":
+                result = document.createElement("tr");
+                result.addClass("fb2-tr");
+                break;
+            case "th":
+                result = document.createElement("th");
+                result.addClass("fb2-th");
+                break;
+            case "td":
+                result = document.createElement("td");
+                result.addClass("fb2-td");
+                break;
+            case "cite": // Цитата
+                result = document.createElement("blockquote");
+                result.addClass("fb2-cite");
+                break;
+            case "poem": // Стихотворение
+                result = document.createElement("poem");
+                result.addClass("fb2-poem");
+                break;
+            case "stanza": // Строфа 
+                result = document.createElement("stanza");
+                result.addClass("fb2-stanza");
+                break;
+            case "v": // Строка стихотворения
+                result = document.createElement("v");
+                result.addClass("fb2-v");
+                break;
+            default:
+                result = document.createElement("div");
+                result.addClass(`fb2-${(node as HTMLElement).tagName}`);
+                console.log(`fb2 unknown tag: ${(node as HTMLElement).tagName}`);
                 break;
         }
         let promises: Promise<ChildNode>[] = [];
-        node.childNodes.forEach(node => promises.push(this.parseBody(node)));     
+        node.childNodes.forEach(node => promises.push(this.parseBody(node, blobList)));
         for (let p of promises) {
             let childRes = await p;
             if (childRes instanceof HTMLElement)
@@ -163,6 +269,6 @@ export default class VXsFictionBook2View extends FileView {
             else
                 result.append(childRes);
         }
-        return result;  
+        return result;
     }
 }
