@@ -9,6 +9,8 @@ export default class VXsSourceViewPlugin extends VXsProxyPlugin {
     settings: VXsToolsPluginSettings;
     locale: VXsToolsPluginLocale;
 
+    public customLanguageMapping: { [key: string]: string };
+
     constructor(app: App, manifest: PluginManifest) //{ // for future splitting
     //     super(app, manifest);
     // }
@@ -19,11 +21,21 @@ export default class VXsSourceViewPlugin extends VXsProxyPlugin {
         else {
             super(appOrPlugin);
         }
+        this.customLanguageMapping = {};
     }
 
     onload() {
         this.registerView(VIEW_TYPE_SOURCECODE, s => new VXsSourceCodeView(s, this));
+
         this.registerExtensions(["js", "sql"], VIEW_TYPE_SOURCECODE);
+
+        for (let el of this.settings.fileExtensionLanguageMapping.split(';')) {
+            let [extension, language] = el.split('=');
+            if (!extension || !language) continue;
+            this.customLanguageMapping[extension] = language;
+
+            this.registerExtensions([extension], VIEW_TYPE_SOURCECODE);
+        }
     }
 
     onunload() {

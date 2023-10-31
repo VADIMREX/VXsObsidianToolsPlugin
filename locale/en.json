@@ -11,5 +11,7 @@
     "templateFolderSettingDescription": "Files in this folder will be available as templates.",
     "templateFolderSettingSyncCaption":  "Sync from core template plugin",
     "macroFolderSettingCaption": "Custom macros folder location",
-    "macroFolderSettingDescription": "Files in this folder will be treated as custom macros for templates."
+    "macroFolderSettingDescription": "Files in this folder will be treated as custom macros for templates.",
+
+    "extensionViewerMapping": "File extension - source language mapping"
 }

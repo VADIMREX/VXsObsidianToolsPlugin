@@ -36,14 +36,25 @@ export default class VXsToolsPluginSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-				.setName(this.locale.macroFolderSettingCaption())
-				.setDesc(this.locale.macroFolderSettingDescription())
-				.addText(text => text
-					.setPlaceholder('')
-					.setValue(this.plugin.settings.macroFolder)
-					.onChange(async (value) => {
-						this.plugin.settings.macroFolder = value;
-						await this.plugin.saveSettings();
-					}));
+			.setName(this.locale.macroFolderSettingCaption())
+			.setDesc(this.locale.macroFolderSettingDescription())
+			.addText(text => text
+				.setPlaceholder('')
+				.setValue(this.plugin.settings.macroFolder)
+				.onChange(async (value) => {
+					this.plugin.settings.macroFolder = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName(this.locale.fileExtensionLanguageMapping())
+			.setDesc(this.locale.fileExtensionLanguageMapping())
+			.addTextArea(text => text
+				.setPlaceholder('')
+				.setValue(this.plugin.settings.fileExtensionLanguageMapping)
+				.onChange(async (value) => {
+					this.plugin.settings.fileExtensionLanguageMapping = value;
+					await this.plugin.saveSettings();
+				}));
 	}
 }

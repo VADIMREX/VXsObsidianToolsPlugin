@@ -69,8 +69,22 @@ export default class VXsSourceCodeView extends TextFileView {
     }
     /** @override */
     setViewData(data: string, clear: boolean): void {
-        if (clear) 
-            return this.newEditor(data, this.file?.extension);
+        if (clear) {
+            let lang;
+            if (!this.file) lang = undefined;
+            else switch(this.file.extension) {
+                case "js": 
+                    lang = "js";
+                    break;
+                case "sql": 
+                    lang = "sql";
+                    break;
+                default:
+                    lang = this.plugin.customLanguageMapping[this.file.extension];
+                break;
+            }
+            return this.newEditor(data, lang);
+        }
 
         const state = this.editor.state;
         const changes = {changes: {from: 0, to: state.doc.length, insert: data}};

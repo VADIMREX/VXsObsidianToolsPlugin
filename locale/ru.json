@@ -11,5 +11,7 @@
     "templateFolderSettingDescription": "Файлы из этой папки можно будет использовать как шаблоны",
     "templateFolderSettingSyncCaption": "Синхронизировать из ядрового плагина",
     "macroFolderSettingCaption": "Расположение папки с пользовательскими макросами",
-    "macroFolderSettingDescription": "Файлы из этой папки будут считаты как пользовательские макросы для шаблонов"
+    "macroFolderSettingDescription": "Файлы из этой папки будут считаты как пользовательские макросы для шаблонов",
+
+    "extensionViewerMapping": "Соответвтие расширения файла с ЯП"
 }
