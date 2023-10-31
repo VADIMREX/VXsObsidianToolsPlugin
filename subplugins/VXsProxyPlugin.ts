@@ -1,4 +1,4 @@
-import { App, Command, Plugin, PluginManifest } from "obsidian";
+import { App, Command, Plugin, PluginManifest, ViewCreator } from "obsidian";
 
 export default class VXsProxyPlugin {
     proxyPlugin: Plugin;
@@ -20,5 +20,12 @@ export default class VXsProxyPlugin {
 
     addCommand(command: Command): Command {
         return this.proxyPlugin.addCommand.apply(this.proxyPlugin, arguments);
+    }
+
+    registerView(type: string, viewCreator: ViewCreator): void {
+        return this.proxyPlugin.registerView(type, viewCreator);
+    }
+    registerExtensions(extensions: string[], viewType: string): void {
+        return this.proxyPlugin.registerExtensions(extensions, viewType);
     }
 }

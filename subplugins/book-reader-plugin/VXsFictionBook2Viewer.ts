@@ -1,15 +1,15 @@
-import VXsToolsPlugin from "VXsToolsPlugin";
+import VXsBookReaderPlugin from "subplugins/book-reader-plugin/VXsBookReaderPlugin";
 import { FileView, TFile, View, WorkspaceLeaf } from "obsidian";
 
 export const VIEW_TYPE_FICTIONBOOK2 = "fictionbook2";
 
 export default class VXsFictionBook2View extends FileView {
-    plugin: VXsToolsPlugin;
+    plugin: VXsBookReaderPlugin;
     editorEl: HTMLDivElement;
 
     doc: Document;
 
-    constructor(leaf: WorkspaceLeaf, plugin: VXsToolsPlugin) {
+    constructor(leaf: WorkspaceLeaf, plugin: VXsBookReaderPlugin) {
         super(leaf);
         this.plugin = plugin;
     }

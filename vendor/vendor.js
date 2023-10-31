@@ -11,6 +11,8 @@ import * as _codemirror_view from "@codemirror/view";
 
 import { EditorView, basicSetup } from 'codemirror';
 import { javascript } from "@codemirror/lang-javascript";
+import { sql } from "@codemirror/lang-sql";
+import { markdown } from "@codemirror/lang-markdown";
 import { oneDark } from "@codemirror/theme-one-dark";
 
 const libs = {
@@ -34,5 +36,7 @@ export {
     EditorView,
     basicSetup,
     javascript,
+    sql,
+    markdown,
     oneDark 
 };

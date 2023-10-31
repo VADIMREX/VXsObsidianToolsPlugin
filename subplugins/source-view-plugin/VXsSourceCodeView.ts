@@ -1,9 +1,12 @@
+import VXsSourceViewPlugin from "subplugins/source-view-plugin/VXsSourceViewPlugin";
 import VXsToolsPlugin from "VXsToolsPlugin";
 import { TextFileView, View, WorkspaceLeaf } from "obsidian";
 
 import libs, { 
     EditorView, basicSetup, 
-    javascript, 
+    javascript,
+    sql,
+    markdown,
     oneDark,
 } from "vendor";
 
@@ -13,24 +16,37 @@ let { search } = libs["@codemirror"].search;
 export const VIEW_TYPE_SOURCECODE = "sourcecode";
 
 export default class VXsSourceCodeView extends TextFileView {
-    plugin: VXsToolsPlugin;
+    plugin: VXsSourceViewPlugin;
     editorEl: HTMLDivElement;
     editor: EditorView;
 
-    constructor(leaf: WorkspaceLeaf, plugin: VXsToolsPlugin) {
+    constructor(leaf: WorkspaceLeaf, plugin: VXsSourceViewPlugin) {
         super(leaf);
         this.plugin = plugin;
     }
 
-    newEditor(data: string): void {
+    newEditor(data: string, lang?: string): void {
         if (this.editor) this.editor.destroy();
+
+        let langSupport;
+        switch(lang) {
+            case "js":
+                langSupport = javascript();
+                break;
+            case "sql":
+                langSupport = sql();
+                break;
+            default:
+                langSupport = markdown();
+                break;
+        }
 
         this.editorEl = this.editorEl || this.contentEl.createDiv("markdown-source-view mod-cm5");
         this.editor = new EditorView({
             doc: data,
             extensions: [
                 basicSetup,
-                javascript(),
+                langSupport,
                 oneDark, 
                 search()
             ],
@@ -54,7 +70,7 @@ export default class VXsSourceCodeView extends TextFileView {
     /** @override */
     setViewData(data: string, clear: boolean): void {
         if (clear) 
-            return this.newEditor(data);
+            return this.newEditor(data, this.file?.extension);
 
         const state = this.editor.state;
         const changes = {changes: {from: 0, to: state.doc.length, insert: data}};

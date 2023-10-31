@@ -2,7 +2,7 @@ import { App, Editor, FuzzySuggestModal, Notice, Plugin, PluginManifest, TFile, 
 
 import VXsToolsPluginLocale from "VXsToolsPluginLocale";
 import { VXsToolsPluginSettings } from "VXsToolsPluginSettings";
-import VXsProxyPlugin from "VXsProxyPlugin";
+import VXsProxyPlugin from "subplugins/VXsProxyPlugin";
 import { pluginRoot } from "VXsToolsPluginConsts";
 import { constants } from "buffer";
 

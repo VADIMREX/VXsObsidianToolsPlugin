@@ -4,14 +4,21 @@ import { DEFAULT_SETTINGS, VXsToolsPluginSettings } from 'VXsToolsPluginSettings
 import { pluginRoot } from 'VXsToolsPluginConsts';
 import VXsToolsPluginLocale from 'VXsToolsPluginLocale';
 import VXsToolsPluginSettingTab from 'VXsToolsPluginSettingTab';
-import VXsTemplatePlugin from 'VXsTemplatePlugin';
-import VXsSourceCodeView, { VIEW_TYPE_SOURCECODE } from 'VXsSourceCodeView';
-import VXsFictionBook2View, { VIEW_TYPE_FICTIONBOOK2 } from 'VXsFictionBook2Viewer';
+
+import VXsTemplatePlugin from 'subplugins/template-plugin/VXsTemplatePlugin';
+import VXsSourceViewPlugin from 'subplugins/source-view-plugin/VXsSourceViewPlugin';
+import VXsBookReaderPlugin from 'subplugins/book-reader-plugin/VXsBookReaderPlugin';
+
+import VXsSourceCodeView, { VIEW_TYPE_SOURCECODE } from 'subplugins/source-view-plugin/VXsSourceCodeView';
+import VXsFictionBook2View, { VIEW_TYPE_FICTIONBOOK2 } from 'subplugins/book-reader-plugin/VXsFictionBook2Viewer';
 
 export default class VXsToolsPlugin extends Plugin {
 	settings: VXsToolsPluginSettings;
 	locale: VXsToolsPluginLocale;
+
 	templatePlugin: VXsTemplatePlugin;
+	sourceViewPlugin: VXsSourceViewPlugin;
+	bookReaderPlugin: VXsBookReaderPlugin;
 
 	async onload() {
 		try {
@@ -24,6 +31,16 @@ export default class VXsToolsPlugin extends Plugin {
 			this.templatePlugin.locale = this.locale;
 			this.templatePlugin.settings = this.settings;
 			this.templatePlugin.onload();
+
+			this.sourceViewPlugin = new VXsSourceViewPlugin(this);
+			this.sourceViewPlugin.locale = this.locale;
+			this.sourceViewPlugin.settings = this.settings;
+			this.sourceViewPlugin.onload();
+
+			this.bookReaderPlugin = new VXsBookReaderPlugin(this);
+			this.bookReaderPlugin.locale = this.locale;
+			this.bookReaderPlugin.settings = this.settings;
+			this.bookReaderPlugin.onload();
 
 			this.addCommand({
 				id: 'vxs-tools-plugin-wasm-test',
@@ -41,12 +58,6 @@ export default class VXsToolsPlugin extends Plugin {
 			});
 
 			this.addSettingTab(new VXsToolsPluginSettingTab(this.app, this, this.locale));
-
-			this.registerView(VIEW_TYPE_SOURCECODE, s => new VXsSourceCodeView(s, this));
-			this.registerExtensions(["js"], VIEW_TYPE_SOURCECODE);
-
-			this.registerView(VIEW_TYPE_FICTIONBOOK2, s => new VXsFictionBook2View(s, this));
-			this.registerExtensions(["fb2"], VIEW_TYPE_FICTIONBOOK2);
 		}
 		catch (e) {
 			new Notice(`${e}: ${(e as Error).stack}`);
