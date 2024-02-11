@@ -42,6 +42,10 @@ export default class VXsToolsPlugin extends Plugin {
 			this.bookReaderPlugin.settings = this.settings;
 			this.bookReaderPlugin.onload();
 
+			this.registerMarkdownPostProcessor((el, ctx)=>{
+				console.log(arguments);
+			});
+
 			this.addCommand({
 				id: 'vxs-tools-plugin-wasm-test',
 				name: "VX's WASM test",
@@ -56,6 +60,64 @@ export default class VXsToolsPlugin extends Plugin {
 					});
 				}
 			});
+
+			let plugins = (this.app as any)?.plugins
+			if (plugins && plugins.plugins) {
+				let liveSyncPlugin = plugins.plugins["obsidian-livesync"]
+				if (liveSyncPlugin) {
+					this.addCommand({
+						id: 'vxs-tools-plugin-sync-plugin-resolve-all-conflicts',
+						name: "VX's: Resolve all Live Sync conflicts",
+						callback: async () => {
+							for await (const r of liveSyncPlugin.localDatabase.findAllDocs({
+								conflicts: true
+							})) {
+								await liveSyncPlugin.resolveConflicted(r.path);
+							}
+						}
+					})
+					const ICHeader = "i:"
+					const PSCHeader = "ps:"
+					const ICXHeader = "ix:"
+					function isInternalMetadata(s: string) {
+						return s.startsWith(ICHeader);
+					}
+					function isPluginMetadata(s: string) {
+						return s.startsWith(PSCHeader);
+					}
+					function isCustomisationSyncMetadata(s: string) {
+						return s.startsWith(ICXHeader);
+					}
+					this.addCommand({
+						id: 'vxs-tools-plugin-sync-plugin-auto-resolve-conflicts',
+						name: "VX's: Try automerge all Live Sync conflicts",
+						callback: async () => {
+							for await (const r of liveSyncPlugin.localDatabase.findAllDocs({
+								conflicts: true
+							})) {
+								if (isInternalMetadata(r.path)) 
+									await liveSyncPlugin.addOnHiddenFileSync.resolveConflictOnInternalFile(r.path);
+								else if (isPluginMetadata(r.path))
+									await liveSyncPlugin.resolveConflictByNewerEntry(r.path);
+								else if (isCustomisationSyncMetadata(r.path))
+									await liveSyncPlugin.resolveConflictByNewerEntry(r.path);
+								else {
+									// await serialized("conflicted", (async () => {
+									// 	const r = await this.getConflictedStatus(s);
+									// 	if (false !== r) if (true !== r) await this.showMergeDialog(s, r); else {
+									// 	  if (this.settings.syncAfterMerge && !this.suspended) await this.replicate();
+									// 	  Logger("conflict:Automatically merged, but we have to check it again");
+									// 	  setTimeout((() => {
+									// 		this.showIfConflicted(s);
+									// 	  }), 50);
+									// 	}
+									// }));
+								}
+							}
+						}
+					})
+				}
+			}
 
 			this.addSettingTab(new VXsToolsPluginSettingTab(this.app, this, this.locale));
 		}
