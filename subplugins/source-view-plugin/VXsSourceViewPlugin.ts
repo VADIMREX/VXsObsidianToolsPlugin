@@ -27,7 +27,7 @@ export default class VXsSourceViewPlugin extends VXsProxyPlugin {
     onload() {
         this.registerView(VIEW_TYPE_SOURCECODE, s => new VXsSourceCodeView(s, this));
 
-        this.registerExtensions(["js", "sql"], VIEW_TYPE_SOURCECODE);
+        this.registerExtensions(["js", "sql", "go", "mod"], VIEW_TYPE_SOURCECODE);
 
         for (let el of this.settings.fileExtensionLanguageMapping.split(';')) {
             let [extension, language] = el.split('=');

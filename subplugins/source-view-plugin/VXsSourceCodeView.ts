@@ -5,6 +5,7 @@ import { TextFileView, View, WorkspaceLeaf } from "obsidian";
 import libs, { 
     EditorView, basicSetup, 
     javascript,
+    go,
     sql,
     markdown,
     oneDark,
@@ -32,6 +33,9 @@ export default class VXsSourceCodeView extends TextFileView {
         switch(lang) {
             case "js":
                 langSupport = javascript();
+                break;
+            case "go":
+                langSupport = go();
                 break;
             case "sql":
                 langSupport = sql();
@@ -75,6 +79,10 @@ export default class VXsSourceCodeView extends TextFileView {
             else switch(this.file.extension) {
                 case "js": 
                     lang = "js";
+                    break;
+                case "mod": 
+                case "go": 
+                    lang = "go";
                     break;
                 case "sql": 
                     lang = "sql";
