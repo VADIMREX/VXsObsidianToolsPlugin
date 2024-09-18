@@ -146,6 +146,7 @@ export default class VXsFictionBook2View extends FileView {
         }
         this.contentEl.empty();
         let viewRoot = this.contentEl.createDiv("fiction-book");
+        viewRoot.style["userSelect"] = "text"
         let viewDoc = await this.parseBody(body, blobList);
         viewRoot.append(viewDoc);
     }
