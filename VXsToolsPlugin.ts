@@ -1,4 +1,3 @@
-/// <reference path="wasm_exec.d.ts" />
 import { Notice, Plugin } from 'obsidian';
 import { DEFAULT_SETTINGS, VXsToolsPluginSettings } from 'VXsToolsPluginSettings';
 import { pluginRoot } from 'VXsToolsPluginConsts';
@@ -8,6 +7,7 @@ import VXsToolsPluginSettingTab from 'VXsToolsPluginSettingTab';
 import VXsTemplatePlugin from 'subplugins/template-plugin/VXsTemplatePlugin';
 import VXsSourceViewPlugin from 'subplugins/source-view-plugin/VXsSourceViewPlugin';
 import VXsBookReaderPlugin from 'subplugins/book-reader-plugin/VXsBookReaderPlugin';
+import GoWasmPlugin from 'subplugins/go-wasm-plugin/go-wasm-plugin';
 
 import VXsSourceCodeView, { VIEW_TYPE_SOURCECODE } from 'subplugins/source-view-plugin/VXsSourceCodeView';
 import VXsFictionBook2View, { VIEW_TYPE_FICTIONBOOK2 } from 'subplugins/book-reader-plugin/VXsFictionBook2Viewer';
@@ -19,10 +19,11 @@ export default class VXsToolsPlugin extends Plugin {
 	templatePlugin: VXsTemplatePlugin;
 	sourceViewPlugin: VXsSourceViewPlugin;
 	bookReaderPlugin: VXsBookReaderPlugin;
+	goWasmPlugin: GoWasmPlugin;
+	
 
 	async onload() {
 		try {
-			require("wasm_exec");
 			await this.loadSettings();
 			this.locale = new VXsToolsPluginLocale(this.app);
             await this.locale.load()
@@ -42,23 +43,13 @@ export default class VXsToolsPlugin extends Plugin {
 			this.bookReaderPlugin.settings = this.settings;
 			this.bookReaderPlugin.onload();
 
+			this.goWasmPlugin = new GoWasmPlugin(this);
+			this.goWasmPlugin.locale = this.locale;
+			this.goWasmPlugin.settings = this.settings;
+			this.goWasmPlugin.onload();
+
 			this.registerMarkdownPostProcessor((el, ctx)=>{
 				console.log(arguments);
-			});
-
-			this.addCommand({
-				id: 'vxs-tools-plugin-wasm-test',
-				name: "VX's WASM test",
-				callback: async () => {
-					if (!WebAssembly)
-						return new Notice("WebAssembly is not supported");;
-					const go = new Go();
-					var read = await this.app.vault.adapter.readBinary(`${pluginRoot}/testgowasm/hello.wasm`)
-					WebAssembly.instantiate(read, go.importObject).then((result) => {
-						go.run(result.instance);
-						new Notice((window as any).hello())
-					});
-				}
 			});
 
 			let plugins = (this.app as any)?.plugins
