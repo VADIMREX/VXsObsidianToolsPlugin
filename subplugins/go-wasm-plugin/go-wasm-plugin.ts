@@ -1,4 +1,4 @@
-import { App, Editor, FuzzySuggestModal, Notice, Plugin, PluginManifest, TFile, TFolder, arrayBufferToBase64, normalizePath } from "obsidian";
+import { App, Modal, Setting, Plugin, PluginManifest } from "obsidian";
 
 import VXsToolsPluginLocale from "VXsToolsPluginLocale";
 import { VXsToolsPluginSettings } from "VXsToolsPluginSettings";
@@ -6,7 +6,66 @@ import VXsProxyPlugin from "subplugins/VXsProxyPlugin";
 
 import { pluginRoot } from 'VXsToolsPluginConsts';
 
-import { Go } from "./wasm-exec";
+import { Go, FS } from "./wasm_exec";
+
+class PickGoWasmModal extends Modal {
+    constructor(app: App) {
+        super(app);
+    }
+
+    onOpen() {
+        const { contentEl } = this;
+        let cwd = "usr/local/bin"
+        let exeutable = "usr/local/bin/go"
+        let args = ""
+
+        new Setting(contentEl)
+            .setName("cwd")
+            .addText((text) =>
+                text.setValue(cwd)
+                    .onChange((value) => {
+                        cwd = value
+                    }));
+        new Setting(contentEl)
+            .setName("executable")
+            .addText((text) =>
+                text.setValue(exeutable)
+                    .onChange((value) => {
+                        exeutable = value
+                    }));
+        new Setting(contentEl)
+            .setName("args")
+            .addText((text) =>
+                text.onChange((value) => {
+                    args = value
+                }));
+    
+        new Setting(contentEl)
+            .addButton((btn) =>
+                btn
+                .setButtonText("Submit")
+                .setCta()
+                .onClick(async () => {
+                    this.close();
+                    let go = new Go();
+                    FS.bindApp(this.app)
+                    try {
+                        var read = await this.app.vault.adapter.readBinary(exeutable)
+                        let result = await WebAssembly.instantiate(read, go.importObject)
+                        let inst = result.instance;
+                        if(args != "") go.argv.push(args);
+                        await go.run(inst);
+                    }catch(err) {
+                        console.error(err);
+                    }       
+                }));
+    }
+
+    onClose() {
+        let { contentEl } = this;
+        contentEl.empty();
+    }
+}
 
 export default class GoWasmPlugin extends VXsProxyPlugin {
     settings: VXsToolsPluginSettings;
@@ -29,18 +88,7 @@ export default class GoWasmPlugin extends VXsProxyPlugin {
             id: 'vxs-tools-plugin-wasm-test',
             name: "VX's WASM test",
             callback: async () => {
-                let go = new Go(this.app);
-                try {
-                    var read = await this.app.vault.adapter.readBinary("usr/local/bin/go")
-					let result = await WebAssembly.instantiate(read, go.importObject)
-                    //let result = await WebAssembly.instantiateStreaming(fetch("go"), go.importObject)
-                    //mod = result.module;
-                    let inst = result.instance;
-                    await go.run(inst);
-                    //inst = await WebAssembly.instantiate(mod, go.importObject); // reset instance
-                }catch(err) {
-                    console.error(err);
-                }       
+                new PickGoWasmModal(this.app).open();
             }
         })
     }
